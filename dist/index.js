@@ -6790,11 +6790,11 @@ async function main() {
         const octokit = new rest_1.Octokit({ auth: githubToken });
         const releaseTitle = core.getInput("title");
         console.log(`Release title: ${releaseTitle}`);
-        const releaseTag = parseGitTag(context.ref);
+        // const releaseTag = parseGitTag(context.ref);
         const { data: release } = await octokit.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            tag_name: releaseTag,
+            tag_name: "latest",
             name: releaseTitle,
             body: "Release created by GitHub Actions",
         });
