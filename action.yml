@@ -1,0 +1,15 @@
+name: "W Auto Release"
+description: "Auto release for GitHub"
+inputs:
+  repo_token:
+    description: "GitHub secret token"
+    required: true
+  title:
+    description: "The title for the release"
+    required: false
+outputs:
+  time: # id of output
+    description: "The time we greeted you"
+runs:
+  using: "node16"
+  main: "dist/index.js"
