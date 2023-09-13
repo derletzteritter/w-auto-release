@@ -6791,12 +6791,26 @@ async function main() {
         const releaseTitle = core.getInput("title");
         console.log(`Release title: ${releaseTitle}`);
         // const releaseTag = parseGitTag(context.ref);
+        //
+        // get changelog from latest release to HEAD
+        const { data: commits } = await octokit.repos.listCommits({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            sha: context.sha,
+            per_page: 100,
+        });
+        const changelog = commits
+            .map((commit) => {
+            return commit.commit.message;
+        })
+            .join("\n");
+        console.log(`Changelog: ${changelog}`);
         const { data: release } = await octokit.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
             tag_name: "latest",
             name: releaseTitle,
-            body: "Release created by GitHub Actions",
+            body: changelog,
         });
         console.log(`Created release: ${release.id}`);
     }
