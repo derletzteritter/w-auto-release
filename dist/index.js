@@ -6790,10 +6790,11 @@ async function main() {
         const octokit = new rest_1.Octokit({ auth: githubToken });
         const releaseTitle = core.getInput("title");
         console.log(`Release title: ${releaseTitle}`);
+        const releaseTag = parseGitTag(context.ref);
         const { data: release } = await octokit.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            tag_name: context.ref,
+            tag_name: releaseTag,
             name: releaseTitle,
             body: "Release created by GitHub Actions",
         });
@@ -6804,6 +6805,13 @@ async function main() {
             core.setFailed(err.message);
         }
     }
+}
+function parseGitTag(ref) {
+    const match = ref.match(/^refs\/tags\/(.*)$/);
+    if (!match) {
+        throw new Error(`Invalid ref: ${ref}`);
+    }
+    return match[1];
 }
 main();
 
