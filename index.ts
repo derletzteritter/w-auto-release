@@ -5,6 +5,13 @@ import { Endpoints } from "@octokit/types";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverLt from "semver/functions/lt";
+import { Commit, sync as commitParser } from "conventional-commits-parser";
+import {
+  ParsedCommits,
+  generateChangelogFromParsedCommits,
+  getChangelogOptions,
+  isBreakingChange,
+} from "./utils";
 
 type ActionArgs = {
   repoToken: string;
@@ -27,6 +34,9 @@ type ReposListTagsParams =
 
 type GetReleaseByTagParams =
   Endpoints["GET /repos/{owner}/{repo}/releases/tags/{tag}"]["parameters"];
+
+type ReposCompareCommitsResponseCommitsItem =
+  Endpoints["GET /repos/{owner}/{repo}/compare/{base}...{head}"]["response"]["data"]["commits"][0];
 
 type OctokitClient = InstanceType<typeof Octokit>;
 
@@ -86,6 +96,13 @@ export async function main() {
       context.sha,
     );
 
+    const changelog = await getChangelog(
+      octokit,
+      context.repo.owner,
+      context.repo.repo,
+      commitsSinceRelease,
+    );
+
     if (args.automaticReleaseTag) {
       await createReleaseTag(octokit, {
         owner: context.repo.owner,
@@ -105,6 +122,9 @@ export async function main() {
       owner: context.repo.owner,
       repo: context.repo.repo,
       tag_name: releaseTag,
+      body: changelog,
+      prerelease: args.preRelease,
+      name: args.title ? args.title : releaseTag,
     });
   } catch (err) {
     if (err instanceof Error) {
@@ -253,6 +273,73 @@ async function getCommitsSinceRelease(
 
   core.endGroup();
   return commits;
+}
+
+async function getChangelog(
+  octokit: OctokitClient,
+  owner: string,
+  repo: string,
+  commits: ReposCompareCommitsResponseCommitsItem[],
+): Promise<string> {
+  const parsedCommits: ParsedCommits[] = [];
+  core.startGroup("Generating changelog");
+
+  for (const commit of commits) {
+    core.debug(`Processing commit ${JSON.stringify(commit)}`);
+    core.debug(
+      `Searching for pull requests associated with commit ${commit.sha}`,
+    );
+
+    const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
+      owner,
+      repo,
+      commit_sha: commit.sha,
+    });
+
+    if (pulls.data.length) {
+      core.info(
+        `Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`,
+      );
+    }
+
+    const clOptions = await getChangelogOptions();
+    const parsedCommitMsg: any = commitParser(commit.commit.message, clOptions);
+
+    core.debug(`Parsed commit message: ${JSON.stringify(parsedCommitMsg)}`);
+
+    if (parsedCommitMsg.merge) {
+      core.debug(`Ignoring merge commit: ${parsedCommitMsg.merge}`);
+      continue;
+    }
+
+    parsedCommitMsg.extra = {
+      commit: commit,
+      pullRequests: [],
+      breakingChange: false,
+    };
+
+    parsedCommitMsg.extra.pullRequests = pulls.data.map((pr) => {
+      return {
+        number: pr.number,
+        url: pr.html_url,
+      };
+    });
+
+    parsedCommitMsg.extra.breakingChange = isBreakingChange({
+      body: parsedCommitMsg.body,
+      footer: parsedCommitMsg.footer,
+    });
+    core.debug(`Parsed commit: ${JSON.stringify(parsedCommitMsg)}`);
+    parsedCommits.push(parsedCommitMsg);
+    core.info(`Adding commit "${parsedCommitMsg.header}" to the changelog`);
+  }
+
+  const changelog = generateChangelogFromParsedCommits(parsedCommits);
+  core.debug("Changelog:");
+  core.debug(changelog);
+
+  core.endGroup();
+  return changelog;
 }
 
 async function deletePreviousGithubRelease(
