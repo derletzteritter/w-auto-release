@@ -12396,6 +12396,7 @@ async function getChangelog(octokit, owner, repo, commits) {
         const parsedCommitMsg = (0, parser_1.parser)(commit.commit.message);
         core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
         const changelogCommit = (0, parser_1.toConventionalChangelogFormat)(parsedCommitMsg);
+        core.info("Changelog commit: " + JSON.stringify(changelogCommit));
         if (changelogCommit.merge) {
             core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
             continue;

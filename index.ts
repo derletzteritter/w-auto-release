@@ -324,7 +324,9 @@ async function getChangelog(
         core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
 
         const changelogCommit = toConventionalChangelogFormat(parsedCommitMsg)
-        
+
+        core.info("Changelog commit: " + JSON.stringify(changelogCommit));
+
         if (changelogCommit.merge) {
             core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
             continue;
