@@ -75,54 +75,49 @@ export const isBreakingChange = ({
 };
 
 export const generateChangelogFromParsedCommits = (
-  parsedCommits: ParsedCommit[],
+    parsedCommits: ParsedCommit[]
 ): string => {
-  let changelog = "";
+    const changelog: { [key: string]: string[] } = {};
 
-  const commits = parsedCommits.reduce(
-    (acc, parsedCommit) => {
-      const { commitMsg, commit } = parsedCommit;
-      const { header, body, footer } = commitMsg;
+    parsedCommits.forEach((parsedCommit) => {
+        const { commitMsg, commit } = parsedCommit;
+        const { header, body, footer } = commitMsg;
 
-      const shortSHA = getShortSHA(commit.sha);
+        const shortSHA = getShortSHA(commit.sha);
 
-      // wrap it up
-      //
-      const commitMsgLines = [`* ${header} ([${shortSHA}](${commit.html_url}))`]
-        .concat(
-          body ? body.split("\n").map((line) => `  ${line}`) : [],
-          footer ? footer.split("\n").map((line) => `  ${line}`) : [],
-        )
-        .join("\n");
+        // Convert commit message parts to strings and append to changelog
+        const commitMsgLines = [
+            `* ${header} ([${shortSHA}](${commit.html_url}))`,
+            body ? `  ${body}` : '',  // Ensure body is a string
+            footer ? `  ${footer}` : '',  // Ensure footer is a string
+        ].filter(Boolean).join('\n');
 
-      const type = header ? header.split(":")[0] : "chore";
-      const typeTitle = (ConventionalCommitTypes as any)[type];
+        const type = header ? header.split(":")[0] : "chore";
+        const typeTitle = (ConventionalCommitTypes as any)[type];
 
-      if (!typeTitle) {
-        core.warning(`Unknown commit type: ${type}`);
-        return acc;
-      }
+        if (!typeTitle) {
+            core.warning(`Unknown commit type: ${type}`);
+            return;
+        }
 
-      if (!acc[typeTitle]) {
-        acc[typeTitle] = [];
-      }
+        if (!changelog[typeTitle]) {
+            changelog[typeTitle] = [];
+        }
 
-      acc[typeTitle].push(commitMsgLines);
+        changelog[typeTitle].push(commitMsgLines);
+    });
 
-      return acc;
-    },
-    {} as Record<string, string[]>,
-  );
+    // Convert the changelog object to a formatted string
+    const changelogString = Object.keys(changelog)
+        .map((type) => {
+            const commitsOfType = changelog[type];
+            if (commitsOfType.length) {
+                return `### ${type}\n\n${commitsOfType.join("\n")}`;
+            }
+            return '';
+        })
+        .filter(Boolean)
+        .join('\n\n');
 
-  const types = Object.keys(commits).sort();
-
-  return types.reduce((acc, type) => {
-    const commitsOfType = commits[type];
-
-    if (!commitsOfType.length) {
-      return acc;
-    }
-
-    return `${acc}\n\n### ${type}\n\n${commitsOfType.join("\n")}`;
-  }, changelog);
+    return changelogString;
 };
