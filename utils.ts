@@ -1,7 +1,9 @@
 import * as core from "@actions/core";
+import { RestEndpointMethodTypes } from "@octokit/rest";
 import { Endpoints } from "@octokit/types";
 import { Commit } from "conventional-commits-parser";
 import defaultChangelogOpt from "conventional-recommended-bump";
+import { ParsedCommit } from ".";
 
 type ReposCompareCommitsResponseCommitsItem =
   Endpoints["GET /repos/{owner}/{repo}/compare/{base}...{head}"]["response"]["data"]["commits"][0];
@@ -11,33 +13,26 @@ export const getShortSHA = (sha: string): string => {
   return sha.substring(0, coreAbbrev);
 };
 
-export type ParsedCommitsExtraCommit =
-  ReposCompareCommitsResponseCommitsItem & {
-    author: {
-      email: string;
-      name: string;
-      username: string;
-    };
-    committer: {
-      email: string;
-      name: string;
-      username: string;
-    };
-    distinct: boolean;
-    id: string;
-    message: string;
-    timestamp: string;
-    tree_id: string;
-    url: string;
-  };
+type BaseheadCommits =
+  RestEndpointMethodTypes["repos"]["compareCommitsWithBasehead"]["response"];
 
-type ParsedCommitsExtra = {
-  commit: ParsedCommitsExtraCommit;
-  pullRequests: {
-    number: number;
-    url: string;
-  }[];
-  breakingChange: boolean;
+export type ParsedCommitsExtraCommit = {
+  author: {
+    email: string;
+    name: string;
+    username: string;
+  };
+  committer: {
+    email: string;
+    name: string;
+    username: string;
+  };
+  distinct: boolean;
+  id: string;
+  message: string;
+  timestamp: string;
+  tree_id: string;
+  url: string;
 };
 
 enum ConventionalCommitTypes {
@@ -53,31 +48,6 @@ enum ConventionalCommitTypes {
   chore = "Chores",
   revert = "Reverts",
 }
-
-export type ParsedCommits = {
-  type: ConventionalCommitTypes;
-  scope: string;
-  subject: string;
-  merge: string;
-  header: string;
-  body: string;
-  footer: string;
-  notes: {
-    title: string;
-    text: string;
-  }[];
-  extra: ParsedCommitsExtra;
-  references: {
-    action: string;
-    owner: string;
-    repository: string;
-    issue: string;
-    raw: string;
-    prefix: string;
-  }[];
-  mentions: string[];
-  revert: boolean;
-};
 
 export const getChangelogOptions = async (): Promise<any> => {
   const defaultOpts = defaultChangelogOpt(
@@ -104,45 +74,55 @@ export const isBreakingChange = ({
   return re.test(body || "") || re.test(footer || "");
 };
 
-const getFormattedChangelogEntry = (parsedCommit: ParsedCommits): string => {
-  let entry = "";
-
-  const url = parsedCommit.extra.commit.html_url;
-  const sha = getShortSHA(parsedCommit.extra.commit.sha);
-  const author = parsedCommit?.extra?.commit?.commit?.author?.name;
-
-  let prString = "";
-  prString = parsedCommit.extra.pullRequests.reduce((acc, pr) => {
-    // e.g. #1
-    // e.g. #1,#2
-    // e.g. ''
-    if (acc) {
-      acc += ",";
-    }
-    return `${acc}[#${pr.number}](${pr.url})`;
-  }, "");
-  if (prString) {
-    prString = " " + prString;
-  }
-
-  entry = `- ${sha}: ${parsedCommit.header} (${author})${prString}`;
-  if (parsedCommit.type) {
-    const scopeStr = parsedCommit.scope ? `**${parsedCommit.scope}**: ` : "";
-    entry = `- ${scopeStr}${parsedCommit.subject}${prString} ([${author}](${url}))`;
-  }
-
-  return entry;
-};
-
 export const generateChangelogFromParsedCommits = (
-  parsedCommits: Commit[],
+  parsedCommits: ParsedCommit[],
 ): string => {
   let changelog = "";
-  const commits = parsedCommits.reduce((acc, line) => `${acc}\n${line}`, "");
-  if (commits) {
-    changelog += "\n\n## Commits\n";
-    changelog += commits.trim();
-  }
 
-  return changelog.trim();
+  const commits = parsedCommits.reduce(
+    (acc, parsedCommit) => {
+      const { commitMsg, commit } = parsedCommit;
+      const { header, body, footer } = commitMsg;
+
+      const shortSHA = getShortSHA(commit.sha);
+
+      // wrap it up
+      //
+      const commitMsgLines = [`* ${header} ([${shortSHA}](${commit.html_url}))`]
+        .concat(
+          body ? body.split("\n").map((line) => `  ${line}`) : [],
+          footer ? footer.split("\n").map((line) => `  ${line}`) : [],
+        )
+        .join("\n");
+
+      const type = header ? header.split(":")[0] : "chore";
+      const typeTitle = (ConventionalCommitTypes as any)[type];
+
+      if (!typeTitle) {
+        core.warning(`Unknown commit type: ${type}`);
+        return acc;
+      }
+
+      if (!acc[typeTitle]) {
+        acc[typeTitle] = [];
+      }
+
+      acc[typeTitle].push(commitMsgLines);
+
+      return acc;
+    },
+    {} as Record<string, string[]>,
+  );
+
+  const types = Object.keys(commits).sort();
+
+  return types.reduce((acc, type) => {
+    const commitsOfType = commits[type];
+
+    if (!commitsOfType.length) {
+      return acc;
+    }
+
+    return `${acc}\n\n### ${type}\n\n${commitsOfType.join("\n")}`;
+  }, changelog);
 };

@@ -1,4 +1,4 @@
-import { Octokit } from "@octokit/rest";
+import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
 import * as core from "@actions/core";
 import { Context } from "@actions/github/lib/context";
 import { Endpoints } from "@octokit/types";
@@ -6,10 +6,7 @@ import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverLt from "semver/functions/lt";
 import { Commit, sync as commitParser } from "conventional-commits-parser";
-import {
-  generateChangelogFromParsedCommits,
-  getChangelogOptions,
-} from "./utils";
+import { generateChangelogFromParsedCommits } from "./utils";
 
 type ActionArgs = {
   repoToken: string;
@@ -35,6 +32,14 @@ type GetReleaseByTagParams =
 
 type ReposCompareCommitsResponseCommitsItem =
   Endpoints["GET /repos/{owner}/{repo}/compare/{base}...{head}"]["response"]["data"]["commits"][0];
+
+type GitCommit =
+  Endpoints["GET /repos/{owner}/{repo}/git/commits/{commit_sha}"]["response"]["data"];
+
+type BaseheadCommits =
+  RestEndpointMethodTypes["repos"]["compareCommitsWithBasehead"]["response"];
+
+type BaseheadCommit = BaseheadCommits["data"]["commits"][0];
 
 type OctokitClient = InstanceType<typeof Octokit>;
 
@@ -247,14 +252,12 @@ async function getCommitsSinceRelease(
   core.info(`Fetching commits betwen ${previousReleaseRef} and ${currentSha}`);
 
   try {
-    resp = await octokit.repos.compareCommits({
+    resp = await octokit.repos.compareCommitsWithBasehead({
       repo: tagInfo.repo,
       owner: tagInfo.owner,
-      base: previousReleaseRef,
-      head: currentSha,
+      basehead: `${previousReleaseRef}...${currentSha}`,
     });
 
-    resp.data.commits;
     core.info(`Found ${resp.data.commits.length} commits since last release`);
   } catch (err) {
     core.warning(
@@ -262,9 +265,9 @@ async function getCommitsSinceRelease(
     );
   }
 
-  let commits: any[] = [];
+  let commits: BaseheadCommits["data"]["commits"] = [];
   if (resp?.data?.commits) {
-    commits = resp.data?.commits;
+    commits = resp.data.commits;
   }
 
   core.debug(`Currently ${commits.length} commits in the list`);
@@ -273,13 +276,19 @@ async function getCommitsSinceRelease(
   return commits;
 }
 
+export type ParsedCommit = {
+  commitMsg: Commit;
+  commit: BaseheadCommit;
+};
+
 async function getChangelog(
   octokit: OctokitClient,
   owner: string,
   repo: string,
-  commits: ReposCompareCommitsResponseCommitsItem[],
+  commits: BaseheadCommits["data"]["commits"],
 ): Promise<string> {
-  const parsedCommits: Commit[] = [];
+  const parsedCommits: ParsedCommit[] = [];
+
   core.startGroup("Generating changelog");
 
   for (const commit of commits) {
@@ -301,14 +310,18 @@ async function getChangelog(
     }
 
     const parsedCommitMsg = commitParser(commit.commit.message);
+
+    const parsedCommit: ParsedCommit = {
+      commitMsg: parsedCommitMsg,
+      commit,
+    };
+
     if (parsedCommitMsg.merge) {
       core.debug(`Ignoring merge commit: ${parsedCommitMsg.merge}`);
       continue;
     }
 
-    core.debug(`Parsed commit: ${JSON.stringify(parsedCommitMsg)}`);
-    parsedCommits.push(parsedCommitMsg);
-    core.info(`Adding commit "${parsedCommitMsg.header}" to the changelog`);
+    parsedCommits.push(parsedCommit);
   }
 
   const changelog = generateChangelogFromParsedCommits(parsedCommits);
