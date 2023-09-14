@@ -28,9 +28,9 @@ enum ConventionalCommitTypes {
 const getFormattedChangelogEntry = (parsedCommit: ParsedCommit): string => {
     let entry = '';
 
-    const url = parsedCommit.commit.url
+    const url = parsedCommit.commit.html_url;
     const sha = getShortSHA(parsedCommit.commit.sha);
-    const author = parsedCommit.commit.author?.name || 'Unknown Author';
+    const author = parsedCommit.commit.author?.name || parsedCommit.commit.committer?.name || 'Unknown';
 
     entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})}`;
     if (parsedCommit.commitMsg.type) {
