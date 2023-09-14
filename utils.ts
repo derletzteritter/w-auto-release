@@ -4,46 +4,69 @@ import { Endpoints } from "@octokit/types";
 import { Commit } from "conventional-commits-parser";
 import defaultChangelogOpts from "conventional-recommended-bump";
 import { ParsedCommit } from ".";
+import {ConventionalChangelogCommit} from "@conventional-commits/parser";
 
 export const getShortSHA = (sha: string): string => {
   const coreAbbrev = 7;
   return sha.substring(0, coreAbbrev);
 };
 
+enum ConventionalCommitTypes {
+    feat = 'Features',
+    fix = 'Bug Fixes',
+    docs = 'Documentation',
+    style = 'Styles',
+    refactor = 'Code Refactoring',
+    perf = 'Performance Improvements',
+    test = 'Tests',
+    build = 'Builds',
+    ci = 'Continuous Integration',
+    chore = 'Chores',
+    revert = 'Reverts',
+}
+
+const getFormattedChangelogEntry = (parsedCommit: ParsedCommit): string => {
+    let entry = '';
+
+    const url = parsedCommit.commit.url
+    const sha = getShortSHA(parsedCommit.commit.sha);
+    const author = parsedCommit.commit.author?.name || 'Unknown Author';
+
+    entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})}`;
+    if (parsedCommit.commitMsg.type) {
+        const scopeStr = parsedCommit.commitMsg.scope ? `**${parsedCommit.commitMsg.scope}**: ` : '';
+        entry = `- ${scopeStr}${parsedCommit.commitMsg.subject} ([${author}](${url}))`;
+    }
+
+    return entry;
+};
+
 export const generateChangelogFromParsedCommits = (
     parsedCommits: ParsedCommit[]
 ): string => {
-    const changelog = ""
+    let changelog = ""
 
-    parsedCommits.forEach((parsedCommit) => {
-        const { commitMsg, commit } = parsedCommit;
-        const { header, body, footer } = commitMsg;
+    for (const key of Object.keys(ConventionalCommitTypes)) {
+        const clBlock = parsedCommits
+            .filter((val) => val.commitMsg.type === key)
+            .map((val) => getFormattedChangelogEntry(val))
+            .reduce((acc, line) => `${acc}\n${line}`, '');
+        if (clBlock) {
+            changelog += `\n\n## ${(ConventionalCommitTypes as any)[key]}\n`;
+            changelog += clBlock.trim();
+        }
+    }
 
-        const shortSHA = getShortSHA(commit.sha);
-
-        // Convert commit message parts to strings and append to changelog
-        const commitMsgLines = [
-            `* ${header} ([${shortSHA}](${commit.html_url}))`,
-            body ? `  ${body}` : '',  // Ensure body is a string
-            footer ? `  ${footer}` : '',  // Ensure footer is a string
-        ].filter(Boolean).join('\n');
-
-
-        changelog.concat(commitMsgLines);
-    });
+    // Commits
+    const commits = parsedCommits
+        .filter((val) => val.commitMsg.type === null || Object.keys(ConventionalCommitTypes).indexOf(val.commitMsg.type) === -1)
+        .map((val) => getFormattedChangelogEntry(val))
+        .reduce((acc, line) => `${acc}\n${line}`, '');
+    if (commits) {
+        changelog += '\n\n## Commits\n';
+        changelog += commits.trim();
+    }
 
     return changelog;
-};
-
-export const getChangelogOptions = async () => {
-    const defaultOpts = defaultChangelogOpts({}, {
-        mergePattern: '^Merge pull request #(.*) from (.*)$',
-        mergeCorrespondence: ['issueId', 'source'],
-    }, () => {})
-
-   /* defaultOpts['mergePattern'] = '^Merge pull request #(.*) from (.*)$';
-    defaultOpts['mergeCorrespondence'] = ['issueId', 'source'];*/
-    core.info(`Changelog options: ${JSON.stringify(defaultOpts)}`);
-    return defaultOpts;
 };
 
