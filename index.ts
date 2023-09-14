@@ -106,6 +106,10 @@ export async function main() {
       commitsSinceRelease,
     );
 
+    core.info(`Changelog: ${changelog}`)
+
+    core.info("Stringified changes: " + JSON.stringify(changelog))
+
     if (args.automaticReleaseTag) {
       await createReleaseTag(octokit, {
         owner: context.repo.owner,

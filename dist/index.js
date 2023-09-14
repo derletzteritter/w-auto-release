@@ -8046,6 +8046,8 @@ async function main() {
             ref: `tags/${previousReleaseTag}`,
         }, context.sha);
         const changelog = await getChangelog(octokit, context.repo.owner, context.repo.repo, commitsSinceRelease);
+        core.info(`Changelog: ${changelog}`);
+        core.info("Stringified changes: " + JSON.stringify(changelog));
         if (args.automaticReleaseTag) {
             await createReleaseTag(octokit, {
                 owner: context.repo.owner,
