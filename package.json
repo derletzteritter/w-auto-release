@@ -1,0 +1,25 @@
+{
+  "name": "w-auto-release",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "ncc build index.ts --license licenses.txt"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@octokit/types": "^11.1.0",
+    "@types/semver": "^7.5.2",
+    "@vercel/ncc": "^0.38.0",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@actions/core": "^1.10.1",
+    "@actions/github": "^5.1.1",
+    "@octokit/rest": "^20.0.1",
+    "semver": "^7.5.4"
+  }
+}
