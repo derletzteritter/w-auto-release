@@ -2,7 +2,7 @@ import * as core from "@actions/core";
 import { RestEndpointMethodTypes } from "@octokit/rest";
 import { Endpoints } from "@octokit/types";
 import { Commit } from "conventional-commits-parser";
-import defaultChangelogOpt from "conventional-recommended-bump";
+import defaultChangelogOpts from "conventional-recommended-bump";
 import { ParsedCommit } from ".";
 
 export const getShortSHA = (sha: string): string => {
@@ -34,3 +34,16 @@ export const generateChangelogFromParsedCommits = (
 
     return changelog;
 };
+
+export const getChangelogOptions = async () => {
+    const defaultOpts = defaultChangelogOpts({}, {
+        mergePattern: '^Merge pull request #(.*) from (.*)$',
+        mergeCorrespondence: ['issueId', 'source'],
+    }, () => {})
+
+   /* defaultOpts['mergePattern'] = '^Merge pull request #(.*) from (.*)$';
+    defaultOpts['mergeCorrespondence'] = ['issueId', 'source'];*/
+    core.info(`Changelog options: ${JSON.stringify(defaultOpts)}`);
+    return defaultOpts;
+};
+
