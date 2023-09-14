@@ -12393,9 +12393,24 @@ async function getChangelog(octokit, owner, repo, commits) {
             core.info(`Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`);
         }
         core.info(`Unparsed commit message: ${commit.commit.message}`);
-        const parsedCommitMsg = (0, parser_1.parser)(commit.commit.message);
+        let parsedCommitMsg;
+        try {
+            parsedCommitMsg = (0, parser_1.parser)(commit.commit.message);
+        }
+        catch (err) {
+            core.warning(`Could not parse commit message: ${commit.commit.message}`);
+            continue;
+        }
+        if (!parsedCommitMsg) {
+            core.warning(`Could not parse commit message: ${commit.commit.message}`);
+            continue;
+        }
         core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
         const changelogCommit = (0, parser_1.toConventionalChangelogFormat)(parsedCommitMsg);
+        if (!changelogCommit) {
+            core.warning(`Could not parse commit message: ${commit.commit.message}`);
+            continue;
+        }
         core.info("Changelog commit: " + JSON.stringify(changelogCommit));
         if (changelogCommit.merge) {
             core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);

@@ -319,7 +319,18 @@ async function getChangelog(
 
         core.info(`Unparsed commit message: ${commit.commit.message}`);
 
-        const parsedCommitMsg = parser(commit.commit.message)
+        let parsedCommitMsg: Message;
+        try {
+            parsedCommitMsg = parser(commit.commit.message)
+        } catch (err) {
+            core.warning(`Could not parse commit message: ${commit.commit.message}`);
+            continue;
+        }
+
+        if (!parsedCommitMsg) {
+            core.warning(`Could not parse commit message: ${commit.commit.message}`);
+            continue;
+        }
 
         core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
 
