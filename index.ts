@@ -293,11 +293,9 @@ async function getChangelog(
 ): Promise<string> {
   const parsedCommits: ParsedCommit[] = [];
 
-  core.startGroup("Generating changelog");
-
   for (const commit of commits) {
-    core.debug(`Processing commit ${JSON.stringify(commit)}`);
-    core.debug(
+    core.info(`Processing commit ${JSON.stringify(commit)}`);
+    core.info(
       `Searching for pull requests associated with commit ${commit.sha}`,
     );
 
@@ -329,10 +327,9 @@ async function getChangelog(
   }
 
   const changelog = generateChangelogFromParsedCommits(parsedCommits);
-  core.debug("Changelog:");
-  core.debug(changelog);
+  core.info("Changelog:");
+  core.info(changelog);
 
-  core.endGroup();
   return changelog;
 }
 

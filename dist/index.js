@@ -8179,10 +8179,9 @@ async function getCommitsSinceRelease(octokit, tagInfo, currentSha) {
 }
 async function getChangelog(octokit, owner, repo, commits) {
     const parsedCommits = [];
-    core.startGroup("Generating changelog");
     for (const commit of commits) {
-        core.debug(`Processing commit ${JSON.stringify(commit)}`);
-        core.debug(`Searching for pull requests associated with commit ${commit.sha}`);
+        core.info(`Processing commit ${JSON.stringify(commit)}`);
+        core.info(`Searching for pull requests associated with commit ${commit.sha}`);
         const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
             owner,
             repo,
@@ -8203,9 +8202,8 @@ async function getChangelog(octokit, owner, repo, commits) {
         parsedCommits.push(parsedCommit);
     }
     const changelog = (0, utils_1.generateChangelogFromParsedCommits)(parsedCommits);
-    core.debug("Changelog:");
-    core.debug(changelog);
-    core.endGroup();
+    core.info("Changelog:");
+    core.info(changelog);
     return changelog;
 }
 async function deletePreviousGithubRelease(octokit, releaseInfo) {
