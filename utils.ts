@@ -1,10 +1,5 @@
-import * as core from "@actions/core";
-import { RestEndpointMethodTypes } from "@octokit/rest";
-import { Endpoints } from "@octokit/types";
-import { Commit } from "conventional-commits-parser";
-import defaultChangelogOpts from "conventional-recommended-bump";
 import { ParsedCommit } from ".";
-import {ConventionalChangelogCommit} from "@conventional-commits/parser";
+import conventionalCommitsParser from 'conventional-commits-parser';
 
 export const getShortSHA = (sha: string): string => {
   const coreAbbrev = 7;
@@ -59,7 +54,7 @@ export const generateChangelogFromParsedCommits = (
 
     // Commits
     const commits = parsedCommits
-        .filter((val) => val.commitMsg.type === null || Object.keys(ConventionalCommitTypes).indexOf(val.commitMsg.type) === -1)
+        .filter((val) => val.commitMsg.type === null)
         .map((val) => getFormattedChangelogEntry(val))
         .reduce((acc, line) => `${acc}\n${line}`, '');
     if (commits) {
@@ -69,4 +64,6 @@ export const generateChangelogFromParsedCommits = (
 
     return changelog;
 };
+
+
 

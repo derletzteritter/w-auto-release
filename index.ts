@@ -5,7 +5,7 @@ import {Endpoints} from "@octokit/types";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverLt from "semver/functions/lt";
-import conventionalCommitsParser, {Commit, sync as commitParser} from "conventional-commits-parser";
+import conventionalCommitsParser, {Commit} from "conventional-commits-parser";
 import {generateChangelogFromParsedCommits} from "./utils";
 import {
     ConventionalChangelogCommit,
@@ -287,7 +287,7 @@ async function getCommitsSinceRelease(
 }
 
 export type ParsedCommit = {
-    commitMsg: ConventionalChangelogCommit;
+    commitMsg: Commit;
     commit: BaseheadCommit;
 };
 
@@ -319,7 +319,7 @@ async function getChangelog(
 
         core.info(`Unparsed commit message: ${commit.commit.message}`);
 
-        let parsedCommitMsg: Message;
+      /*  let parsedCommitMsg: Message;
         try {
             parsedCommitMsg = parser(commit.commit.message)
         } catch (err) {
@@ -341,7 +341,11 @@ async function getChangelog(
             continue;
         }
 
-        core.info("Changelog commit: " + JSON.stringify(changelogCommit));
+        core.info("Changelog commit: " + JSON.stringify(changelogCommit));*/
+
+        const changelogCommit = conventionalCommitsParser.sync(commit.commit.message, {
+            mergePattern: /^Merge pull request #(\d+) from (.*)$/,
+        })
 
         if (changelogCommit.merge) {
             core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
