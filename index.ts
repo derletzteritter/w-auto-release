@@ -323,7 +323,12 @@ async function getChangelog(
 
         core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
 
+
         const changelogCommit = toConventionalChangelogFormat(parsedCommitMsg)
+        if (!changelogCommit) {
+            core.warning(`Could not parse commit message: ${commit.commit.message}`);
+            continue;
+        }
 
         core.info("Changelog commit: " + JSON.stringify(changelogCommit));
 
