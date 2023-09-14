@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import { Endpoints } from "@octokit/types";
+import { Commit } from "conventional-commits-parser";
 import defaultChangelogOpt from "conventional-recommended-bump";
 
 type ReposCompareCommitsResponseCommitsItem =
@@ -134,24 +135,13 @@ const getFormattedChangelogEntry = (parsedCommit: ParsedCommits): string => {
 };
 
 export const generateChangelogFromParsedCommits = (
-  parsedCommits: ParsedCommits[],
+  parsedCommits: Commit[],
 ): string => {
   let changelog = "";
-
-  // Breaking Changes
-  const breaking = parsedCommits
-    .filter((val) => val.extra.breakingChange === true)
-    .map((val) => getFormattedChangelogEntry(val))
-    .reduce((acc, line) => `${acc}\n${line}`, "");
-  if (breaking) {
-    changelog += "## Breaking Changes\n";
-    changelog += breaking.trim();
-  }
 
   for (const key of Object.keys(ConventionalCommitTypes)) {
     const clBlock = parsedCommits
       .filter((val) => val.type === key)
-      .map((val) => getFormattedChangelogEntry(val))
       .reduce((acc, line) => `${acc}\n${line}`, "");
     if (clBlock) {
       changelog += `\n\n## ${(ConventionalCommitTypes as any)[key]}\n`;
@@ -160,14 +150,7 @@ export const generateChangelogFromParsedCommits = (
   }
 
   // Commits
-  const commits = parsedCommits
-    .filter(
-      (val) =>
-        val.type === null ||
-        Object.keys(ConventionalCommitTypes).indexOf(val.type) === -1,
-    )
-    .map((val) => getFormattedChangelogEntry(val))
-    .reduce((acc, line) => `${acc}\n${line}`, "");
+  const commits = parsedCommits.reduce((acc, line) => `${acc}\n${line}`, "");
   if (commits) {
     changelog += "\n\n## Commits\n";
     changelog += commits.trim();

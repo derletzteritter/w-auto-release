@@ -281,7 +281,7 @@ async function getChangelog(
   repo: string,
   commits: ReposCompareCommitsResponseCommitsItem[],
 ): Promise<string> {
-  const parsedCommits: ParsedCommits[] = [];
+  const parsedCommits: Commit[] = [];
   core.startGroup("Generating changelog");
 
   for (const commit of commits) {
@@ -303,7 +303,7 @@ async function getChangelog(
     }
 
     const clOptions = await getChangelogOptions();
-    const parsedCommitMsg: any = commitParser(commit.commit.message, clOptions);
+    const parsedCommitMsg = commitParser(commit.commit.message, clOptions);
 
     core.debug(`Parsed commit message: ${JSON.stringify(parsedCommitMsg)}`);
 
@@ -312,23 +312,6 @@ async function getChangelog(
       continue;
     }
 
-    parsedCommitMsg.extra = {
-      commit: commit,
-      pullRequests: [],
-      breakingChange: false,
-    };
-
-    parsedCommitMsg.extra.pullRequests = pulls.data.map((pr) => {
-      return {
-        number: pr.number,
-        url: pr.html_url,
-      };
-    });
-
-    parsedCommitMsg.extra.breakingChange = isBreakingChange({
-      body: parsedCommitMsg.body,
-      footer: parsedCommitMsg.footer,
-    });
     core.debug(`Parsed commit: ${JSON.stringify(parsedCommitMsg)}`);
     parsedCommits.push(parsedCommitMsg);
     core.info(`Adding commit "${parsedCommitMsg.header}" to the changelog`);

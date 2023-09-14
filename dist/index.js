@@ -11419,21 +11419,6 @@ async function getChangelog(octokit, owner, repo, commits) {
             core.debug(`Ignoring merge commit: ${parsedCommitMsg.merge}`);
             continue;
         }
-        parsedCommitMsg.extra = {
-            commit: commit,
-            pullRequests: [],
-            breakingChange: false,
-        };
-        parsedCommitMsg.extra.pullRequests = pulls.data.map((pr) => {
-            return {
-                number: pr.number,
-                url: pr.html_url,
-            };
-        });
-        parsedCommitMsg.extra.breakingChange = (0, utils_1.isBreakingChange)({
-            body: parsedCommitMsg.body,
-            footer: parsedCommitMsg.footer,
-        });
         core.debug(`Parsed commit: ${JSON.stringify(parsedCommitMsg)}`);
         parsedCommits.push(parsedCommitMsg);
         core.info(`Adding commit "${parsedCommitMsg.header}" to the changelog`);
@@ -11561,19 +11546,9 @@ const getFormattedChangelogEntry = (parsedCommit) => {
 };
 const generateChangelogFromParsedCommits = (parsedCommits) => {
     let changelog = "";
-    // Breaking Changes
-    const breaking = parsedCommits
-        .filter((val) => val.extra.breakingChange === true)
-        .map((val) => getFormattedChangelogEntry(val))
-        .reduce((acc, line) => `${acc}\n${line}`, "");
-    if (breaking) {
-        changelog += "## Breaking Changes\n";
-        changelog += breaking.trim();
-    }
     for (const key of Object.keys(ConventionalCommitTypes)) {
         const clBlock = parsedCommits
             .filter((val) => val.type === key)
-            .map((val) => getFormattedChangelogEntry(val))
             .reduce((acc, line) => `${acc}\n${line}`, "");
         if (clBlock) {
             changelog += `\n\n## ${ConventionalCommitTypes[key]}\n`;
@@ -11581,11 +11556,7 @@ const generateChangelogFromParsedCommits = (parsedCommits) => {
         }
     }
     // Commits
-    const commits = parsedCommits
-        .filter((val) => val.type === null ||
-        Object.keys(ConventionalCommitTypes).indexOf(val.type) === -1)
-        .map((val) => getFormattedChangelogEntry(val))
-        .reduce((acc, line) => `${acc}\n${line}`, "");
+    const commits = parsedCommits.reduce((acc, line) => `${acc}\n${line}`, "");
     if (commits) {
         changelog += "\n\n## Commits\n";
         changelog += commits.trim();
