@@ -7,9 +7,12 @@ inputs:
   title:
     description: "The title for the release"
     required: false
-outputs:
-  time: # id of output
-    description: "The time we greeted you"
+  prerelease:
+    description: "If the release is a pre release"
+    required: false
+  automatic_release_tag:
+    description: "Release tag should be the same"
+    required: false
 runs:
   using: "node20"
   main: "dist/index.js"
