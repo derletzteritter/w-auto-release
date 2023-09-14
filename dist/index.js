@@ -7592,15 +7592,15 @@ async function createNewRelease(octokit, params) {
     core.endGroup();
     return resp.data.upload_url;
 }
-function parseGitTag(ref) {
+const parseGitTag = (inputRef) => {
     const re = /^(refs\/)?tags\/(.*)$/;
-    const match = ref.match(re);
-    if (!match || !match[2]) {
-        core.debug(`Input does not look like a valid git tag: ${ref}`);
+    const resMatch = inputRef.match(re);
+    if (!resMatch || !resMatch[2]) {
+        core.debug(`Input "${inputRef}" does not appear to be a tag`);
         return "";
     }
-    return match[2];
-}
+    return resMatch[2];
+};
 async function searchForPreviousReleaseTag(octokit, currentReleaseTag, tagInfo) {
     const validSemver = (0, valid_1.default)(currentReleaseTag);
     if (!validSemver) {

@@ -158,17 +158,15 @@ async function createNewRelease(
   return resp.data.upload_url;
 }
 
-function parseGitTag(ref: string) {
+const parseGitTag = (inputRef: string): string => {
   const re = /^(refs\/)?tags\/(.*)$/;
-  const match = ref.match(re);
-
-  if (!match || !match[2]) {
-    core.debug(`Input does not look like a valid git tag: ${ref}`);
+  const resMatch = inputRef.match(re);
+  if (!resMatch || !resMatch[2]) {
+    core.debug(`Input "${inputRef}" does not appear to be a tag`);
     return "";
   }
-
-  return match[2];
-}
+  return resMatch[2];
+};
 
 async function searchForPreviousReleaseTag(
   octokit: OctokitClient,
