@@ -5,8 +5,14 @@ import {Endpoints} from "@octokit/types";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverLt from "semver/functions/lt";
-import {Commit, sync as commitParser} from "conventional-commits-parser";
+import conventionalCommitsParser, {Commit, sync as commitParser} from "conventional-commits-parser";
 import {generateChangelogFromParsedCommits} from "./utils";
+import {
+    ConventionalChangelogCommit,
+    Message,
+    parser,
+    toConventionalChangelogFormat
+} from "@conventional-commits/parser";
 
 type ActionArgs = {
     repoToken: string;
@@ -281,7 +287,7 @@ async function getCommitsSinceRelease(
 }
 
 export type ParsedCommit = {
-    commitMsg: Commit;
+    commitMsg: ConventionalChangelogCommit;
     commit: BaseheadCommit;
 };
 
@@ -313,21 +319,21 @@ async function getChangelog(
 
         core.info(`Unparsed commit message: ${commit.commit.message}`);
 
-        const parsedCommitMsg = commitParser(commit.commit.message, {
-            mergePattern: '^Merge pull request #(.*) from (.*)$',
-            mergeCorrespondence: ['issueId', 'source'],
-        });
+        const parsedCommitMsg = parser(commit.commit.message)
+
         core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
 
-        const parsedCommit: ParsedCommit = {
-            commitMsg: parsedCommitMsg,
-            commit,
-        };
-
-        if (parsedCommitMsg.merge) {
-            core.debug(`Ignoring merge commit: ${parsedCommitMsg.merge}`);
+        const changelogCommit = toConventionalChangelogFormat(parsedCommitMsg)
+        
+        if (changelogCommit.merge) {
+            core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
             continue;
         }
+
+        const parsedCommit: ParsedCommit = {
+            commitMsg: changelogCommit,
+            commit,
+        };
 
         parsedCommits.push(parsedCommit);
     }
