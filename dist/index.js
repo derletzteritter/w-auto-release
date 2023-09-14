@@ -8190,7 +8190,9 @@ async function getChangelog(octokit, owner, repo, commits) {
         if (pulls.data.length) {
             core.info(`Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`);
         }
+        core.info(`Unparsed commit message: ${commit.commit.message}`);
         const parsedCommitMsg = (0, conventional_commits_parser_1.sync)(commit.commit.message);
+        core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
         const parsedCommit = {
             commitMsg: parsedCommitMsg,
             commit,
