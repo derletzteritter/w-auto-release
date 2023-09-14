@@ -138,18 +138,6 @@ export const generateChangelogFromParsedCommits = (
   parsedCommits: Commit[],
 ): string => {
   let changelog = "";
-
-  for (const key of Object.keys(ConventionalCommitTypes)) {
-    const clBlock = parsedCommits
-      .filter((val) => val.type === key)
-      .reduce((acc, line) => `${acc}\n${line}`, "");
-    if (clBlock) {
-      changelog += `\n\n## ${(ConventionalCommitTypes as any)[key]}\n`;
-      changelog += clBlock.trim();
-    }
-  }
-
-  // Commits
   const commits = parsedCommits.reduce((acc, line) => `${acc}\n${line}`, "");
   if (commits) {
     changelog += "\n\n## Commits\n";

@@ -7,10 +7,8 @@ import semverRcompare from "semver/functions/rcompare";
 import semverLt from "semver/functions/lt";
 import { Commit, sync as commitParser } from "conventional-commits-parser";
 import {
-  ParsedCommits,
   generateChangelogFromParsedCommits,
   getChangelogOptions,
-  isBreakingChange,
 } from "./utils";
 
 type ActionArgs = {
@@ -302,11 +300,7 @@ async function getChangelog(
       );
     }
 
-    const clOptions = await getChangelogOptions();
-    const parsedCommitMsg = commitParser(commit.commit.message, clOptions);
-
-    core.debug(`Parsed commit message: ${JSON.stringify(parsedCommitMsg)}`);
-
+    const parsedCommitMsg = commitParser(commit.commit.message);
     if (parsedCommitMsg.merge) {
       core.debug(`Ignoring merge commit: ${parsedCommitMsg.merge}`);
       continue;

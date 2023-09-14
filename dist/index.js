@@ -11412,9 +11412,7 @@ async function getChangelog(octokit, owner, repo, commits) {
         if (pulls.data.length) {
             core.info(`Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`);
         }
-        const clOptions = await (0, utils_1.getChangelogOptions)();
-        const parsedCommitMsg = (0, conventional_commits_parser_1.sync)(commit.commit.message, clOptions);
-        core.debug(`Parsed commit message: ${JSON.stringify(parsedCommitMsg)}`);
+        const parsedCommitMsg = (0, conventional_commits_parser_1.sync)(commit.commit.message);
         if (parsedCommitMsg.merge) {
             core.debug(`Ignoring merge commit: ${parsedCommitMsg.merge}`);
             continue;
@@ -11546,16 +11544,6 @@ const getFormattedChangelogEntry = (parsedCommit) => {
 };
 const generateChangelogFromParsedCommits = (parsedCommits) => {
     let changelog = "";
-    for (const key of Object.keys(ConventionalCommitTypes)) {
-        const clBlock = parsedCommits
-            .filter((val) => val.type === key)
-            .reduce((acc, line) => `${acc}\n${line}`, "");
-        if (clBlock) {
-            changelog += `\n\n## ${ConventionalCommitTypes[key]}\n`;
-            changelog += clBlock.trim();
-        }
-    }
-    // Commits
     const commits = parsedCommits.reduce((acc, line) => `${acc}\n${line}`, "");
     if (commits) {
         changelog += "\n\n## Commits\n";
