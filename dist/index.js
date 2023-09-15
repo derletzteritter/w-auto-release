@@ -1857,753 +1857,6 @@ function isLoopbackAddress(host) {
 
 /***/ }),
 
-/***/ 1033:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const parser = __nccwpck_require__(5222)
-const { toConventionalChangelogFormat } = __nccwpck_require__(174)
-
-module.exports = {
-  parser,
-  toConventionalChangelogFormat
-}
-
-
-/***/ }),
-
-/***/ 5075:
-/***/ ((module) => {
-
-module.exports = {
-  CR: '\u000d',
-  LF: '\u000a',
-  ZWNBSP: '\ufeff',
-  TAB: '\u0009',
-  VT: '\u000b',
-  FF: '\u000c',
-  SP: '\u0020',
-  NBSP: '\u00a0'
-}
-
-
-/***/ }),
-
-/***/ 5222:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const Scanner = __nccwpck_require__(6347)
-const { isWhitespace, isNewline, isParens } = __nccwpck_require__(2935)
-
-/*
- * <message>       ::= <summary>, <newline>+, <body>, (<newline>+, <footer>)*
- *                  |  <summary>, (<newline>+, <footer>)*
- *                  |  <summary>, <newline>*
- *
- */
-function message (commitText) {
-  const scanner = new Scanner(commitText.trim())
-  const node = scanner.enter('message', [])
-
-  // <summary> ...
-  const s = summary(scanner)
-  if (s instanceof Error) {
-    throw s
-  } else {
-    node.children.push(s)
-  }
-  if (scanner.eof()) {
-    return scanner.exit(node)
-  }
-
-  let nl
-  let b
-  // ... <newline>* <body> ...
-  nl = newline(scanner)
-  if (nl instanceof Error) {
-    throw nl
-  } else {
-    node.children.push(nl)
-    b = body(scanner)
-    if (b instanceof Error) {
-      b = null
-    } else {
-      node.children.push(b)
-    }
-  }
-  if (scanner.eof()) {
-    return scanner.exit(node)
-  }
-
-  //  ... <newline>* <footer>+
-  if (b) {
-    nl = newline(scanner)
-    if (nl instanceof Error) {
-      throw nl
-    } else {
-      node.children.push(nl)
-    }
-  }
-  while (!scanner.eof()) {
-    const f = footer(scanner)
-    if (f instanceof Error) {
-      break
-    } else {
-      node.children.push(f)
-    }
-    nl = newline(scanner)
-    if (nl instanceof Error) {
-      break
-    } else {
-      node.children.push(nl)
-    }
-  }
-
-  return scanner.exit(node)
-}
-
-/*
- * <summary>      ::= <type> "(" <scope> ")" ["!"] ":" <whitespace>* <text>
- *                 |  <type> ["!"] ":" <whitespace>* <text>
- *
- */
-function summary (scanner) {
-  const node = scanner.enter('summary', [])
-
-  // <type> ...
-  const t = type(scanner)
-  if (t instanceof Error) {
-    return t
-  } else {
-    node.children.push(t)
-  }
-
-  // ... "(" <scope> ")" ...
-  let s = scope(scanner)
-  if (s instanceof Error) {
-    s = null
-  } else {
-    node.children.push(s)
-  }
-
-  // ... ["!"] ...
-  let b = breakingChange(scanner)
-  if (b instanceof Error) {
-    b = null
-  } else {
-    node.children.push(b)
-  }
-
-  // ... ":" ...
-  const sep = separator(scanner)
-  if (sep instanceof Error) {
-    return scanner.abort(node, [!s && '(', !b && '!', ':'])
-  } else {
-    node.children.push(sep)
-  }
-
-  // ... <whitespace>* ...
-  const ws = whitespace(scanner)
-  if (!(ws instanceof Error)) {
-    node.children.push(ws)
-  }
-
-  // ... <text>
-  node.children.push(text(scanner))
-  return scanner.exit(node)
-}
-
-/*
- * <type>         ::= 1*<any UTF8-octets except newline or parens or ["!"] ":" or whitespace>
- */
-function type (scanner) {
-  const node = scanner.enter('type', '')
-  while (!scanner.eof()) {
-    const token = scanner.peek()
-    if (isParens(token) || isWhitespace(token) || isNewline(token) || token === '!' || token === ':') {
-      break
-    }
-    node.value += scanner.next()
-  }
-  if (node.value === '') {
-    return scanner.abort(node)
-  } else {
-    return scanner.exit(node)
-  }
-}
-
-/*
- * <text>         ::= 1*<any UTF8-octets except newline>
- */
-function text (scanner) {
-  const node = scanner.enter('text', '')
-  while (!scanner.eof()) {
-    const token = scanner.peek()
-    if (isNewline(token)) {
-      break
-    }
-    node.value += scanner.next()
-  }
-  return scanner.exit(node)
-}
-
-/*
- * "(" <scope> ")"        ::= 1*<any UTF8-octets except newline or parens>
- */
-function scope (scanner) {
-  if (scanner.peek() !== '(') {
-    return scanner.abort(scanner.enter('scope', ''))
-  } else {
-    scanner.next()
-  }
-
-  const node = scanner.enter('scope', '')
-
-  while (!scanner.eof()) {
-    const token = scanner.peek()
-    if (isParens(token) || isNewline(token)) {
-      break
-    }
-    node.value += scanner.next()
-  }
-
-  if (scanner.peek() !== ')') {
-    throw scanner.abort(node, [')'])
-  } else {
-    scanner.exit(node)
-    scanner.next()
-  }
-
-  if (node.value === '') {
-    return scanner.abort(node)
-  } else {
-    return node
-  }
-}
-
-/*
- * <body>          ::= [<any body-text except pre-footer>], <newline>, <body>*
- *                  | [<any body-text except pre-footer>]
- */
-function body (scanner) {
-  const node = scanner.enter('body', [])
-
-  // check except <pre-footer> condition:
-  const pf = preFooter(scanner)
-  if (!(pf instanceof Error)) return scanner.abort(node)
-
-  // ["BREAKING CHANGE", ":", <whitespace>*]
-  const b = breakingChange(scanner, false)
-  if (!(b instanceof Error) && scanner.peek() === ':') {
-    node.children.push(b)
-    node.children.push(separator(scanner))
-    const w = whitespace(scanner)
-    if (!(w instanceof Error)) node.children.push(w)
-  }
-
-  // [<text>]
-  const t = text(scanner)
-  node.children.push(t)
-  // <newline>, <body>*
-  const nl = newline(scanner)
-  if (!(nl instanceof Error)) {
-    const b = body(scanner)
-    if (b instanceof Error) {
-      scanner.abort(nl)
-    } else {
-      node.children.push(nl)
-      Array.prototype.push.apply(node.children, b.children)
-    }
-  }
-  return scanner.exit(node)
-}
-
-/*
- * <newline>*, <footer>+
- */
-function preFooter (scanner) {
-  const node = scanner.enter('pre-footer', [])
-  let f
-  while (!scanner.eof()) {
-    newline(scanner)
-    f = footer(scanner)
-    if (f instanceof Error) return scanner.abort(node)
-  }
-  return scanner.exit(node)
-}
-
-/*
- * <footer>       ::= <token> <separator> <whitespace>* <value>
- */
-function footer (scanner) {
-  const node = scanner.enter('footer', [])
-  // <token>
-  const t = token(scanner)
-  if (t instanceof Error) {
-    return t
-  } else {
-    node.children.push(t)
-  }
-
-  // <separator>
-  const s = separator(scanner)
-  if (s instanceof Error) {
-    scanner.abort(node)
-    return s
-  } else {
-    node.children.push(s)
-  }
-
-  // <whitespace>*
-  const ws = whitespace(scanner)
-  if (!(ws instanceof Error)) {
-    node.children.push(ws)
-  }
-
-  // <value>
-  const v = value(scanner)
-  if (v instanceof Error) {
-    scanner.abort(node)
-    return v
-  } else {
-    node.children.push(v)
-  }
-
-  return scanner.exit(node)
-}
-
-/*
- * <token>        ::= <breaking-change>
- *                 |  <type>, "(" <scope> ")", ["!"]
- *                 |  <type>
- */
-function token (scanner) {
-  const node = scanner.enter('token', [])
-  // "BREAKING CHANGE"
-  const b = breakingChange(scanner)
-  if (b instanceof Error) {
-    scanner.abort(node)
-  } else {
-    node.children.push(b)
-    return scanner.exit(node)
-  }
-
-  // <type>
-  const t = type(scanner)
-  if (t instanceof Error) {
-    return t
-  } else {
-    node.children.push(t)
-    // "(" <scope> ")"
-    const s = scope(scanner)
-    if (!(s instanceof Error)) {
-      node.children.push(s)
-    }
-    // ["!"]
-    const b = breakingChange(scanner)
-    if (!(b instanceof Error)) {
-      node.children.push(b)
-    }
-  }
-  return scanner.exit(node)
-}
-
-/*
- * <breaking-change> ::= "!" | "BREAKING CHANGE" | "BREAKING-CHANGE"
- *
- * Note: "!" is only allowed in <footer> and <summary>, not <body>.
- */
-function breakingChange (scanner, allowBang = true) {
-  const node = scanner.enter('breaking-change', '')
-  if (scanner.peek() === '!' && allowBang) {
-    node.value = scanner.next()
-  } else if (scanner.peekLiteral('BREAKING CHANGE') || scanner.peekLiteral('BREAKING-CHANGE')) {
-    node.value = scanner.next('BREAKING CHANGE'.length)
-  }
-  if (node.value === '') {
-    return scanner.abort(node, ['BREAKING CHANGE'])
-  } else {
-    return scanner.exit(node)
-  }
-}
-
-/*
- * <value>        ::= <text> <continuation>*
- *                 |  <text>
- */
-function value (scanner) {
-  const node = scanner.enter('value', [])
-  node.children.push(text(scanner))
-  let c
-  // <continuation>*
-  while (!((c = continuation(scanner)) instanceof Error)) {
-    node.children.push(c)
-  }
-  return scanner.exit(node)
-}
-
-/*
- * <newline> <whitespace> <text>
- */
-function continuation (scanner) {
-  const node = scanner.enter('continuation', [])
-  // <newline>
-  const nl = newline(scanner)
-  if (nl instanceof Error) {
-    return nl
-  } else {
-    node.children.push(nl)
-  }
-
-  // <whitespace> <text>
-  const ws = whitespace(scanner)
-  if (ws instanceof Error) {
-    scanner.abort(node)
-    return ws
-  } else {
-    node.children.push(ws)
-    node.children.push(text(scanner))
-  }
-
-  return scanner.exit(node)
-}
-
-/*
- * <separator>    ::= ":" | " #"
- */
-function separator (scanner) {
-  const node = scanner.enter('separator', '')
-  // ':'
-  if (scanner.peek() === ':') {
-    node.value = scanner.next()
-    return scanner.exit(node)
-  }
-
-  // ' #'
-  if (scanner.peek() === ' ') {
-    scanner.next()
-    if (scanner.peek() === '#') {
-      scanner.next()
-      node.value = ' #'
-      return scanner.exit(node)
-    } else {
-      return scanner.abort(node)
-    }
-  }
-
-  return scanner.abort(node)
-}
-
-/*
- * <whitespace>+   ::= <ZWNBSP> | <TAB> | <VT> | <FF> | <SP> | <NBSP> | <USP>
- */
-function whitespace (scanner) {
-  const node = scanner.enter('whitespace', '')
-  while (isWhitespace(scanner.peek())) {
-    node.value += scanner.next()
-  }
-  if (node.value === '') {
-    return scanner.abort(node, [' '])
-  }
-  return scanner.exit(node)
-}
-
-/*
- * <newline>+       ::= [<CR>], <LF>
- */
-function newline (scanner) {
-  const node = scanner.enter('newline', '')
-  while (isNewline(scanner.peek())) {
-    node.value += scanner.next()
-  }
-  if (node.value === '') {
-    return scanner.abort(node, ['<CR><LF>', '<LF>'])
-  }
-  return scanner.exit(node)
-}
-
-module.exports = message
-
-
-/***/ }),
-
-/***/ 6347:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const { isNewline } = __nccwpck_require__(2935)
-const { CR, LF } = __nccwpck_require__(5075)
-
-class Scanner {
-  constructor (text, pos) {
-    this.text = text
-    this.pos = pos ? { ...pos } : { line: 1, column: 1, offset: 0 }
-  }
-
-  eof () {
-    return this.pos.offset >= this.text.length
-  }
-
-  next (n) {
-    const token = n
-      ? this.text.substring(this.pos.offset, this.pos.offset + n)
-      : this.peek()
-
-    this.pos.offset += token.length
-    this.pos.column += token.length
-
-    if (isNewline(token)) {
-      this.pos.line++
-      this.pos.column = 1
-    }
-
-    return token
-  }
-
-  peek () {
-    let token = this.text.charAt(this.pos.offset)
-    // Consume <CR>? <LF>
-    if (token === CR && this.text.charAt(this.pos.offset + 1) === LF) {
-      token += LF
-    }
-    return token
-  }
-
-  peekLiteral (literal) {
-    const str = this.text.substring(this.pos.offset, this.pos.offset + literal.length)
-    return literal === str
-  }
-
-  position () {
-    return { ...this.pos }
-  }
-
-  rewind (pos) {
-    this.pos = pos
-  }
-
-  enter (type, content) {
-    const position = { start: this.position() }
-    return Array.isArray(content)
-      ? { type, children: content, position }
-      : { type, value: content, position }
-  }
-
-  exit (node) {
-    node.position.end = this.position()
-    return node
-  }
-
-  abort (node, expectedTokens) {
-    const position = `${this.pos.line}:${this.pos.column}`
-    const validTokens = expectedTokens
-      ? expectedTokens.filter(Boolean).join(', ')
-      : `<${node.type}>`
-
-    const error = this.eof()
-      ? Error(`unexpected token EOF at ${position}, valid tokens [${validTokens}]`)
-      : Error(`unexpected token '${this.peek()}' at ${position}, valid tokens [${validTokens}]`)
-
-    this.rewind(node.position.start)
-    return error
-  }
-}
-
-module.exports = Scanner
-
-
-/***/ }),
-
-/***/ 2935:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const { CR, LF, ZWNBSP, TAB, VT, FF, SP, NBSP } = __nccwpck_require__(5075)
-
-module.exports = {
-  /*
-  * <whitespace>   ::= <ZWNBSP> | <TAB> | <VT> | <FF> | <SP> | <NBSP> | <USP>
-  */
-  isWhitespace (token) {
-    return token === ZWNBSP || token === TAB || token === VT || token === FF || token === SP || token === NBSP
-  },
-
-  /*
-  * <newline>      ::= <CR>? <LF>
-  */
-  isNewline (token) {
-    const chr = token.charAt(0)
-    if (chr === CR || chr === LF) return true
-  },
-
-  /*
-  * <parens>       ::= "(" | ")"
-  */
-  isParens (token) {
-    return token === '(' || token === ')'
-  }
-}
-
-
-/***/ }),
-
-/***/ 174:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const visit = __nccwpck_require__(7301)
-const visitWithAncestors = __nccwpck_require__(9658)
-const NUMBER_REGEX = /^[0-9]+$/
-
-// Converts conventional commit AST into conventional-changelog's
-// output format, see: https://www.npmjs.com/package/conventional-commits-parser
-function toConventionalChangelogFormat (ast) {
-  const cc = {
-    body: '',
-    subject: '',
-    type: '',
-    scope: null,
-    notes: [],
-    references: [],
-    mentions: [],
-    merge: null,
-    revert: null,
-    header: '',
-    footer: null
-  }
-  // Separate the body and summary nodes, this simplifies the subsequent
-  // tree walking logic:
-  let body
-  let summary
-  visit(ast, ['body', 'summary'], (node) => {
-    switch (node.type) {
-      case 'body':
-        body = node
-        break
-      case 'summary':
-        summary = node
-        break
-    }
-  })
-
-  // <type>, "(", <scope>, ")", ["!"], ":", <whitespace>*, <text>
-  visit(summary, (node) => {
-    switch (node.type) {
-      case 'type':
-        cc.type = node.value
-        cc.header += node.value
-        break
-      case 'scope':
-        cc.scope = node.value
-        cc.header += `(${node.value})`
-        break
-      case 'breaking-change':
-        cc.header += '!'
-        break
-      case 'text':
-        cc.subject = node.value
-        cc.header += `: ${node.value}`
-        break
-      default:
-        break
-    }
-  })
-
-  // [<any body-text except pre-footer>]
-  if (body) {
-    visit(body, 'text', (node, _i, parent) => {
-      // TODO(@bcoe): once we have \n tokens in tree we can drop this:
-      if (cc.body !== '') cc.body += '\n'
-      cc.body += node.value
-    })
-  }
-
-  // Extract BREAKING CHANGE notes, regardless of whether they fall in
-  // summary, body, or footer:
-  const breaking = {
-    title: 'BREAKING CHANGE',
-    text: '' // "text" will be populated if a BREAKING CHANGE token is parsed.
-  }
-  visitWithAncestors(ast, ['breaking-change'], (node, ancestors) => {
-    let parent = ancestors.pop()
-    let startCollecting = false
-    switch (parent.type) {
-      case 'summary':
-        breaking.text = cc.subject
-        break
-      case 'body':
-        breaking.text = ''
-        // We treat text from the BREAKING CHANGE marker forward as
-        // the breaking change notes:
-        visit(parent, ['text', 'breaking-change'], (node) => {
-          // TODO(@bcoe): once we have \n tokens in tree we can drop this:
-          if (startCollecting && node.type === 'text') {
-            if (breaking.text !== '') breaking.text += '\n'
-            breaking.text += node.value
-          } else if (node.type === 'breaking-change') {
-            startCollecting = true
-          }
-        })
-        break
-      case 'token':
-        parent = ancestors.pop()
-        visit(parent, 'text', (node) => {
-          breaking.text = node.value
-        })
-        break
-    }
-  })
-  if (breaking.text !== '') cc.notes.push(breaking)
-
-  // Populates references array from footers:
-  // references: [{
-  //    action: 'Closes',
-  //    owner: null,
-  //    repository: null,
-  //    issue: '1', raw: '#1',
-  //    prefix: '#'
-  // }]
-  visit(ast, ['footer'], (node) => {
-    const reference = {
-      prefix: '#'
-    }
-    let hasRefSepartor = false
-    visit(node, ['type', 'separator', 'text'], (node) => {
-      switch (node.type) {
-        case 'type':
-          // refs, closes, etc:
-          // TODO(@bcoe): conventional-changelog does not currently use
-          // "reference.action" in its templates:
-          reference.action = node.value
-          break
-        case 'separator':
-          // Footer of the form "Refs #99":
-          if (node.value.includes('#')) hasRefSepartor = true
-          break
-        case 'text':
-          // Footer of the form "Refs: #99"
-          if (node.value.charAt(0) === '#') {
-            hasRefSepartor = true
-            reference.issue = node.value.substring(1)
-          // TODO(@bcoe): what about references like "Refs: #99, #102"?
-          } else {
-            reference.issue = node.value
-          }
-          break
-      }
-    })
-    // TODO(@bcoe): how should references like "Refs: v8:8940" work.
-    if (hasRefSepartor && reference.issue.match(NUMBER_REGEX)) {
-      cc.references.push(reference)
-    }
-  })
-
-  return cc
-}
-
-module.exports = {
-  toConventionalChangelogFormat
-}
-
-
-/***/ }),
-
 /***/ 3825:
 /***/ ((module) => {
 
@@ -6383,6 +5636,512 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
+/***/ 9742:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const { Transform } = __nccwpck_require__(2781)
+const parser = __nccwpck_require__(7309)
+const regex = __nccwpck_require__(3433)
+
+function assignOpts (options) {
+  options = {
+    headerPattern: /^(\w*)(?:\(([\w$.\-*/ ]*)\))?: (.*)$/,
+    headerCorrespondence: ['type', 'scope', 'subject'],
+    referenceActions: [
+      'close',
+      'closes',
+      'closed',
+      'fix',
+      'fixes',
+      'fixed',
+      'resolve',
+      'resolves',
+      'resolved'
+    ],
+    issuePrefixes: ['#'],
+    noteKeywords: ['BREAKING CHANGE', 'BREAKING-CHANGE'],
+    fieldPattern: /^-(.*?)-$/,
+    revertPattern: /^Revert\s"([\s\S]*)"\s*This reverts commit (\w*)\./,
+    revertCorrespondence: ['header', 'hash'],
+    warn: function () {},
+    mergePattern: null,
+    mergeCorrespondence: null,
+    ...options
+  }
+
+  if (typeof options.headerPattern === 'string') {
+    options.headerPattern = new RegExp(options.headerPattern)
+  }
+
+  if (typeof options.headerCorrespondence === 'string') {
+    options.headerCorrespondence = options.headerCorrespondence.split(',')
+  }
+
+  if (typeof options.referenceActions === 'string') {
+    options.referenceActions = options.referenceActions.split(',')
+  }
+
+  if (typeof options.issuePrefixes === 'string') {
+    options.issuePrefixes = options.issuePrefixes.split(',')
+  }
+
+  if (typeof options.noteKeywords === 'string') {
+    options.noteKeywords = options.noteKeywords.split(',')
+  }
+
+  if (typeof options.fieldPattern === 'string') {
+    options.fieldPattern = new RegExp(options.fieldPattern)
+  }
+
+  if (typeof options.revertPattern === 'string') {
+    options.revertPattern = new RegExp(options.revertPattern)
+  }
+
+  if (typeof options.revertCorrespondence === 'string') {
+    options.revertCorrespondence = options.revertCorrespondence.split(',')
+  }
+
+  if (typeof options.mergePattern === 'string') {
+    options.mergePattern = new RegExp(options.mergePattern)
+  }
+
+  return options
+}
+
+function conventionalCommitsParser (options) {
+  options = assignOpts(options)
+  const reg = regex(options)
+
+  return new Transform({
+    objectMode: true,
+    highWaterMark: 16,
+    transform (data, enc, cb) {
+      let commit
+
+      try {
+        commit = parser(data.toString(), options, reg)
+        cb(null, commit)
+      } catch (err) {
+        if (options.warn === true) {
+          cb(err)
+        } else {
+          options.warn(err.toString())
+          cb(null, '')
+        }
+      }
+    }
+  })
+}
+
+function sync (commit, options) {
+  options = assignOpts(options)
+  const reg = regex(options)
+
+  return parser(commit, options, reg)
+}
+
+module.exports = conventionalCommitsParser
+module.exports.sync = sync
+
+
+/***/ }),
+
+/***/ 7309:
+/***/ ((module) => {
+
+"use strict";
+
+
+const CATCH_ALL = /()(.+)/gi
+const SCISSOR = '# ------------------------ >8 ------------------------'
+
+function trimOffNewlines (input) {
+  const result = input.match(/[^\r\n]/)
+  if (!result) {
+    return ''
+  }
+  const firstIndex = result.index
+  let lastIndex = input.length - 1
+  while (input[lastIndex] === '\r' || input[lastIndex] === '\n') {
+    lastIndex--
+  }
+  return input.substring(firstIndex, lastIndex + 1)
+}
+
+function append (src, line) {
+  if (src) {
+    src += '\n' + line
+  } else {
+    src = line
+  }
+
+  return src
+}
+
+function getCommentFilter (char) {
+  return function (line) {
+    return line.charAt(0) !== char
+  }
+}
+
+function truncateToScissor (lines) {
+  const scissorIndex = lines.indexOf(SCISSOR)
+
+  if (scissorIndex === -1) {
+    return lines
+  }
+
+  return lines.slice(0, scissorIndex)
+}
+
+function getReferences (input, regex) {
+  const references = []
+  let referenceSentences
+  let referenceMatch
+
+  const reApplicable = input.match(regex.references) !== null
+    ? regex.references
+    : CATCH_ALL
+
+  while ((referenceSentences = reApplicable.exec(input))) {
+    const action = referenceSentences[1] || null
+    const sentence = referenceSentences[2]
+
+    while ((referenceMatch = regex.referenceParts.exec(sentence))) {
+      let owner = null
+      let repository = referenceMatch[1] || ''
+      const ownerRepo = repository.split('/')
+
+      if (ownerRepo.length > 1) {
+        owner = ownerRepo.shift()
+        repository = ownerRepo.join('/')
+      }
+
+      const reference = {
+        action,
+        owner,
+        repository: repository || null,
+        issue: referenceMatch[3],
+        raw: referenceMatch[0],
+        prefix: referenceMatch[2]
+      }
+
+      references.push(reference)
+    }
+  }
+
+  return references
+}
+
+function passTrough () {
+  return true
+}
+
+function parser (raw, options, regex) {
+  if (!raw || !raw.trim()) {
+    throw new TypeError('Expected a raw commit')
+  }
+
+  if (!options || (typeof options === 'object' && !Object.keys(options).length)) {
+    throw new TypeError('Expected options')
+  }
+
+  if (!regex) {
+    throw new TypeError('Expected regex')
+  }
+
+  let currentProcessedField
+  let mentionsMatch
+  const otherFields = {}
+  const commentFilter = typeof options.commentChar === 'string'
+    ? getCommentFilter(options.commentChar)
+    : passTrough
+  const gpgFilter = line => !line.match(/^\s*gpg:/)
+
+  const rawLines = trimOffNewlines(raw).split(/\r?\n/)
+  const lines = truncateToScissor(rawLines).filter(commentFilter).filter(gpgFilter)
+
+  let continueNote = false
+  let isBody = true
+  const headerCorrespondence = options.headerCorrespondence?.map(function (part) {
+    return part.trim()
+  }) || []
+  const revertCorrespondence = options.revertCorrespondence?.map(function (field) {
+    return field.trim()
+  }) || []
+  const mergeCorrespondence = options.mergeCorrespondence?.map(function (field) {
+    return field.trim()
+  }) || []
+
+  let body = null
+  let footer = null
+  let header = null
+  const mentions = []
+  let merge = null
+  const notes = []
+  const references = []
+  let revert = null
+
+  if (lines.length === 0) {
+    return {
+      body,
+      footer,
+      header,
+      mentions,
+      merge,
+      notes,
+      references,
+      revert,
+      scope: null,
+      subject: null,
+      type: null
+    }
+  }
+
+  // msg parts
+  merge = lines.shift()
+  const mergeParts = {}
+  const headerParts = {}
+  body = ''
+  footer = ''
+
+  const mergeMatch = merge.match(options.mergePattern)
+  if (mergeMatch && options.mergePattern) {
+    merge = mergeMatch[0]
+
+    header = lines.shift()
+    while (header !== undefined && !header.trim()) {
+      header = lines.shift()
+    }
+    if (!header) {
+      header = ''
+    }
+
+    mergeCorrespondence.forEach(function (partName, index) {
+      const partValue = mergeMatch[index + 1] || null
+      mergeParts[partName] = partValue
+    })
+  } else {
+    header = merge
+    merge = null
+
+    mergeCorrespondence.forEach(function (partName) {
+      mergeParts[partName] = null
+    })
+  }
+
+  const headerMatch = header.match(options.headerPattern)
+  if (headerMatch) {
+    headerCorrespondence.forEach(function (partName, index) {
+      const partValue = headerMatch[index + 1] || null
+      headerParts[partName] = partValue
+    })
+  } else {
+    headerCorrespondence.forEach(function (partName) {
+      headerParts[partName] = null
+    })
+  }
+
+  references.push(...getReferences(header, {
+    references: regex.references,
+    referenceParts: regex.referenceParts
+  }))
+
+  // body or footer
+  lines.forEach(function (line) {
+    if (options.fieldPattern) {
+      const fieldMatch = options.fieldPattern.exec(line)
+
+      if (fieldMatch) {
+        currentProcessedField = fieldMatch[1]
+
+        return
+      }
+
+      if (currentProcessedField) {
+        otherFields[currentProcessedField] = append(otherFields[currentProcessedField], line)
+
+        return
+      }
+    }
+
+    let referenceMatched
+
+    // this is a new important note
+    const notesMatch = line.match(regex.notes)
+    if (notesMatch) {
+      continueNote = true
+      isBody = false
+      footer = append(footer, line)
+
+      const note = {
+        title: notesMatch[1],
+        text: notesMatch[2]
+      }
+
+      notes.push(note)
+
+      return
+    }
+
+    const lineReferences = getReferences(line, {
+      references: regex.references,
+      referenceParts: regex.referenceParts
+    })
+
+    if (lineReferences.length > 0) {
+      isBody = false
+      referenceMatched = true
+      continueNote = false
+    }
+
+    Array.prototype.push.apply(references, lineReferences)
+
+    if (referenceMatched) {
+      footer = append(footer, line)
+
+      return
+    }
+
+    if (continueNote) {
+      notes[notes.length - 1].text = append(notes[notes.length - 1].text, line)
+      footer = append(footer, line)
+
+      return
+    }
+
+    if (isBody) {
+      body = append(body, line)
+    } else {
+      footer = append(footer, line)
+    }
+  })
+
+  if (options.breakingHeaderPattern && notes.length === 0) {
+    const breakingHeader = header.match(options.breakingHeaderPattern)
+    if (breakingHeader) {
+      const noteText = breakingHeader[3] // the description of the change.
+      notes.push({
+        title: 'BREAKING CHANGE',
+        text: noteText
+      })
+    }
+  }
+
+  while ((mentionsMatch = regex.mentions.exec(raw))) {
+    mentions.push(mentionsMatch[1])
+  }
+
+  // does this commit revert any other commit?
+  const revertMatch = raw.match(options.revertPattern)
+  if (revertMatch) {
+    revert = {}
+    revertCorrespondence.forEach(function (partName, index) {
+      const partValue = revertMatch[index + 1] || null
+      revert[partName] = partValue
+    })
+  } else {
+    revert = null
+  }
+
+  notes.forEach(function (note) {
+    note.text = trimOffNewlines(note.text)
+  })
+
+  const msg = {
+    ...headerParts,
+    ...mergeParts,
+    merge,
+    header,
+    body: body ? trimOffNewlines(body) : null,
+    footer: footer ? trimOffNewlines(footer) : null,
+    notes,
+    references,
+    mentions,
+    revert,
+    ...otherFields
+  }
+
+  return msg
+}
+
+module.exports = parser
+
+
+/***/ }),
+
+/***/ 3433:
+/***/ ((module) => {
+
+"use strict";
+
+
+const reNomatch = /(?!.*)/
+
+function join (array, joiner) {
+  return array
+    .map(function (val) {
+      return val.trim()
+    })
+    .filter(function (val) {
+      return val.length
+    })
+    .join(joiner)
+}
+
+function getNotesRegex (noteKeywords, notesPattern) {
+  if (!noteKeywords) {
+    return reNomatch
+  }
+
+  const noteKeywordsSelection = join(noteKeywords, '|')
+
+  if (!notesPattern) {
+    return new RegExp('^[\\s|*]*(' + noteKeywordsSelection + ')[:\\s]+(.*)', 'i')
+  }
+
+  return notesPattern(noteKeywordsSelection)
+}
+
+function getReferencePartsRegex (issuePrefixes, issuePrefixesCaseSensitive) {
+  if (!issuePrefixes) {
+    return reNomatch
+  }
+
+  const flags = issuePrefixesCaseSensitive ? 'g' : 'gi'
+  return new RegExp('(?:.*?)??\\s*([\\w-\\.\\/]*?)??(' + join(issuePrefixes, '|') + ')([\\w-]*\\d+)', flags)
+}
+
+function getReferencesRegex (referenceActions) {
+  if (!referenceActions) {
+    // matches everything
+    return /()(.+)/gi
+  }
+
+  const joinedKeywords = join(referenceActions, '|')
+  return new RegExp('(' + joinedKeywords + ')(?:\\s+(.*?))(?=(?:' + joinedKeywords + ')|$)', 'gi')
+}
+
+module.exports = function (options) {
+  options = options || {}
+  const reNotes = getNotesRegex(options.noteKeywords, options.notesPattern)
+  const reReferenceParts = getReferencePartsRegex(options.issuePrefixes, options.issuePrefixesCaseSensitive)
+  const reReferences = getReferencesRegex(options.referenceActions)
+
+  return {
+    notes: reNotes,
+    referenceParts: reReferenceParts,
+    references: reReferences,
+    mentions: /@([\w-]+)/g
+  }
+}
+
+
+/***/ }),
+
 /***/ 8943:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -7492,240 +7251,6 @@ exports.debug = debug; // for test
 
 /***/ }),
 
-/***/ 8657:
-/***/ ((module) => {
-
-"use strict";
-
-
-module.exports = convert
-
-function convert(test) {
-  if (test == null) {
-    return ok
-  }
-
-  if (typeof test === 'string') {
-    return typeFactory(test)
-  }
-
-  if (typeof test === 'object') {
-    return 'length' in test ? anyFactory(test) : allFactory(test)
-  }
-
-  if (typeof test === 'function') {
-    return test
-  }
-
-  throw new Error('Expected function, string, or object as test')
-}
-
-// Utility assert each property in `test` is represented in `node`, and each
-// values are strictly equal.
-function allFactory(test) {
-  return all
-
-  function all(node) {
-    var key
-
-    for (key in test) {
-      if (node[key] !== test[key]) return false
-    }
-
-    return true
-  }
-}
-
-function anyFactory(tests) {
-  var checks = []
-  var index = -1
-
-  while (++index < tests.length) {
-    checks[index] = convert(tests[index])
-  }
-
-  return any
-
-  function any() {
-    var index = -1
-
-    while (++index < checks.length) {
-      if (checks[index].apply(this, arguments)) {
-        return true
-      }
-    }
-
-    return false
-  }
-}
-
-// Utility to convert a string into a function which checks a given node’s type
-// for said string.
-function typeFactory(test) {
-  return type
-
-  function type(node) {
-    return Boolean(node && node.type === test)
-  }
-}
-
-// Utility to return true.
-function ok() {
-  return true
-}
-
-
-/***/ }),
-
-/***/ 1270:
-/***/ ((module) => {
-
-module.exports = color
-function color(d) {
-  return '\u001B[33m' + d + '\u001B[39m'
-}
-
-
-/***/ }),
-
-/***/ 9658:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-
-module.exports = visitParents
-
-var convert = __nccwpck_require__(8657)
-var color = __nccwpck_require__(1270)
-
-var CONTINUE = true
-var SKIP = 'skip'
-var EXIT = false
-
-visitParents.CONTINUE = CONTINUE
-visitParents.SKIP = SKIP
-visitParents.EXIT = EXIT
-
-function visitParents(tree, test, visitor, reverse) {
-  var step
-  var is
-
-  if (typeof test === 'function' && typeof visitor !== 'function') {
-    reverse = visitor
-    visitor = test
-    test = null
-  }
-
-  is = convert(test)
-  step = reverse ? -1 : 1
-
-  factory(tree, null, [])()
-
-  function factory(node, index, parents) {
-    var value = typeof node === 'object' && node !== null ? node : {}
-    var name
-
-    if (typeof value.type === 'string') {
-      name =
-        typeof value.tagName === 'string'
-          ? value.tagName
-          : typeof value.name === 'string'
-          ? value.name
-          : undefined
-
-      visit.displayName =
-        'node (' + color(value.type + (name ? '<' + name + '>' : '')) + ')'
-    }
-
-    return visit
-
-    function visit() {
-      var grandparents = parents.concat(node)
-      var result = []
-      var subresult
-      var offset
-
-      if (!test || is(node, index, parents[parents.length - 1] || null)) {
-        result = toResult(visitor(node, parents))
-
-        if (result[0] === EXIT) {
-          return result
-        }
-      }
-
-      if (node.children && result[0] !== SKIP) {
-        offset = (reverse ? node.children.length : -1) + step
-
-        while (offset > -1 && offset < node.children.length) {
-          subresult = factory(node.children[offset], offset, grandparents)()
-
-          if (subresult[0] === EXIT) {
-            return subresult
-          }
-
-          offset =
-            typeof subresult[1] === 'number' ? subresult[1] : offset + step
-        }
-      }
-
-      return result
-    }
-  }
-}
-
-function toResult(value) {
-  if (value !== null && typeof value === 'object' && 'length' in value) {
-    return value
-  }
-
-  if (typeof value === 'number') {
-    return [CONTINUE, value]
-  }
-
-  return [value]
-}
-
-
-/***/ }),
-
-/***/ 7301:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-
-module.exports = visit
-
-var visitParents = __nccwpck_require__(9658)
-
-var CONTINUE = visitParents.CONTINUE
-var SKIP = visitParents.SKIP
-var EXIT = visitParents.EXIT
-
-visit.CONTINUE = CONTINUE
-visit.SKIP = SKIP
-visit.EXIT = EXIT
-
-function visit(tree, test, visitor, reverse) {
-  if (typeof test === 'function' && typeof visitor !== 'function') {
-    reverse = visitor
-    visitor = test
-    test = null
-  }
-
-  visitParents(tree, test, overload, reverse)
-
-  function overload(node, parents) {
-    var parent = parents[parents.length - 1]
-    var index = parent ? parent.children.indexOf(node) : null
-    return visitor(node, index, parent)
-  }
-}
-
-
-/***/ }),
-
 /***/ 3537:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -8477,8 +8002,8 @@ const context_1 = __nccwpck_require__(5213);
 const valid_1 = __importDefault(__nccwpck_require__(9146));
 const rcompare_1 = __importDefault(__nccwpck_require__(2314));
 const lt_1 = __importDefault(__nccwpck_require__(7025));
+const conventional_commits_parser_1 = __importDefault(__nccwpck_require__(9742));
 const utils_1 = __nccwpck_require__(4990);
-const parser_1 = __nccwpck_require__(1033);
 function validateArgs() {
     const args = {
         repoToken: core.getInput("repo_token", { required: true }),
@@ -8666,25 +8191,9 @@ async function getChangelog(octokit, owner, repo, commits) {
             core.info(`Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`);
         }
         core.info(`Unparsed commit message: ${commit.commit.message}`);
-        let parsedCommitMsg;
-        try {
-            parsedCommitMsg = (0, parser_1.parser)(commit.commit.message);
-        }
-        catch (err) {
-            core.warning(`Could not parse commit message: ${commit.commit.message}`);
-            continue;
-        }
-        if (!parsedCommitMsg) {
-            core.warning(`Could not parse commit message: ${commit.commit.message}`);
-            continue;
-        }
-        core.info("Parsed commit message: " + JSON.stringify(parsedCommitMsg));
-        const changelogCommit = (0, parser_1.toConventionalChangelogFormat)(parsedCommitMsg);
-        if (!changelogCommit) {
-            core.warning(`Could not parse commit message: ${commit.commit.message}`);
-            continue;
-        }
-        core.info("Changelog commit: " + JSON.stringify(changelogCommit));
+        const changelogCommit = conventional_commits_parser_1.default.sync(commit.commit.message, {
+            mergePattern: /^Merge pull request #(\d+) from (.*)$/,
+        });
         if (changelogCommit.merge) {
             core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
             continue;
@@ -8748,14 +8257,16 @@ var ConventionalCommitTypes;
     ConventionalCommitTypes["revert"] = "Reverts";
 })(ConventionalCommitTypes || (ConventionalCommitTypes = {}));
 const getFormattedChangelogEntry = (parsedCommit) => {
-    var _a;
-    let entry = '';
-    const url = parsedCommit.commit.url;
+    var _a, _b, _c;
+    let entry = "";
+    const url = parsedCommit.commit.html_url;
     const sha = (0, exports.getShortSHA)(parsedCommit.commit.sha);
-    const author = ((_a = parsedCommit.commit.author) === null || _a === void 0 ? void 0 : _a.name) || 'Unknown Author';
+    const author = (_c = (_b = (_a = parsedCommit.commit.commit) === null || _a === void 0 ? void 0 : _a.author) === null || _b === void 0 ? void 0 : _b.name) !== null && _c !== void 0 ? _c : "Unknown";
     entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})}`;
     if (parsedCommit.commitMsg.type) {
-        const scopeStr = parsedCommit.commitMsg.scope ? `**${parsedCommit.commitMsg.scope}**: ` : '';
+        const scopeStr = parsedCommit.commitMsg.scope
+            ? `**${parsedCommit.commitMsg.scope}**: `
+            : "";
         entry = `- ${scopeStr}${parsedCommit.commitMsg.subject} ([${author}](${url}))`;
     }
     return entry;
@@ -8766,7 +8277,7 @@ const generateChangelogFromParsedCommits = (parsedCommits) => {
         const clBlock = parsedCommits
             .filter((val) => val.commitMsg.type === key)
             .map((val) => getFormattedChangelogEntry(val))
-            .reduce((acc, line) => `${acc}\n${line}`, '');
+            .reduce((acc, line) => `${acc}\n${line}`, "");
         if (clBlock) {
             changelog += `\n\n## ${ConventionalCommitTypes[key]}\n`;
             changelog += clBlock.trim();
@@ -8774,11 +8285,11 @@ const generateChangelogFromParsedCommits = (parsedCommits) => {
     }
     // Commits
     const commits = parsedCommits
-        .filter((val) => val.commitMsg.type === null || Object.keys(ConventionalCommitTypes).indexOf(val.commitMsg.type) === -1)
+        .filter((val) => val.commitMsg.type === null)
         .map((val) => getFormattedChangelogEntry(val))
-        .reduce((acc, line) => `${acc}\n${line}`, '');
+        .reduce((acc, line) => `${acc}\n${line}`, "");
     if (commits) {
-        changelog += '\n\n## Commits\n';
+        changelog += "\n\n## Commits\n";
         changelog += commits.trim();
     }
     return changelog;
@@ -8857,6 +8368,14 @@ module.exports = require("os");
 
 "use strict";
 module.exports = require("path");
+
+/***/ }),
+
+/***/ 2781:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("stream");
 
 /***/ }),
 
