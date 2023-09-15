@@ -8006,7 +8006,7 @@ const conventional_commits_parser_1 = __importDefault(__nccwpck_require__(9742))
 const utils_1 = __nccwpck_require__(4990);
 function validateArgs() {
     const args = {
-        repoToken: core.getInput("repo_token", { required: true }),
+        repoToken: process.env.GITHUB_TOKEN,
         title: core.getInput("title", { required: false }),
         preRelease: JSON.parse(core.getInput("prerelease", { required: false })),
         automaticReleaseTag: core.getInput("automatic_release_tag", {
@@ -8022,6 +8022,10 @@ async function main() {
         const octokit = new rest_1.Octokit({
             auth: args.repoToken,
         });
+        if (!args.repoToken) {
+            core.setFailed("No repo token found");
+            return;
+        }
         core.startGroup("Initializing action");
         core.debug(`Github context ${JSON.stringify(context)}`);
         core.endGroup();
@@ -8262,7 +8266,7 @@ const getFormattedChangelogEntry = (parsedCommit) => {
     const url = parsedCommit.commit.html_url;
     const sha = (0, exports.getShortSHA)(parsedCommit.commit.sha);
     const author = (_c = (_b = (_a = parsedCommit.commit.commit) === null || _a === void 0 ? void 0 : _a.author) === null || _b === void 0 ? void 0 : _b.name) !== null && _c !== void 0 ? _c : "Unknown";
-    entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})}`;
+    entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})`;
     if (parsedCommit.commitMsg.type) {
         const scopeStr = parsedCommit.commitMsg.scope
             ? `**${parsedCommit.commitMsg.scope}**: `
