@@ -51,7 +51,7 @@ type OctokitClient = InstanceType<typeof Octokit>;
 
 function validateArgs(): ActionArgs {
   const args = {
-    repoToken: core.getInput("repo_token", { required: true }),
+    repoToken: process.env.GITHUB_TOKEN as string,
     title: core.getInput("title", { required: false }),
     preRelease: JSON.parse(core.getInput("prerelease", { required: false })),
     automaticReleaseTag: core.getInput("automatic_release_tag", {
@@ -70,6 +70,11 @@ export async function main() {
     const octokit = new Octokit({
       auth: args.repoToken,
     });
+
+    if (!args.repoToken) {
+      core.setFailed("No repo token found");
+      return;
+    }
 
     core.startGroup("Initializing action");
     core.debug(`Github context ${JSON.stringify(context)}`);
