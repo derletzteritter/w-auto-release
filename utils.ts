@@ -1,5 +1,6 @@
 import { ParsedCommit } from ".";
 import conventionalCommitsParser from "conventional-commits-parser";
+import conventionalRecommendedBump from "conventional-recommended-bump";
 
 export const getShortSHA = (sha: string): string => {
   const coreAbbrev = 7;
@@ -27,7 +28,7 @@ const getFormattedChangelogEntry = (parsedCommit: ParsedCommit): string => {
   const sha = getShortSHA(parsedCommit.commit.sha);
   const author = parsedCommit.commit.commit?.author?.name ?? "Unknown";
 
-  entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})}`;
+  entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})`;
   if (parsedCommit.commitMsg.type) {
     const scopeStr = parsedCommit.commitMsg.scope
       ? `**${parsedCommit.commitMsg.scope}**: `
