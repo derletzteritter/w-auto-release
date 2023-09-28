@@ -1,6 +1,4 @@
-import { ParsedCommit } from ".";
-import conventionalCommitsParser from "conventional-commits-parser";
-import conventionalRecommendedBump from "conventional-recommended-bump";
+import { ParsedCommit } from "./typings";
 
 export const getShortSHA = (sha: string): string => {
   const coreAbbrev = 7;

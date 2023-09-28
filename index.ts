@@ -1,53 +1,24 @@
-import { Octokit, RestEndpointMethodTypes } from "@octokit/rest";
+import { Octokit } from "@octokit/rest";
 import * as core from "@actions/core";
 import { Context } from "@actions/github/lib/context";
-import { Endpoints } from "@octokit/types";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverLt from "semver/functions/lt";
-import conventionalCommitsParser, { Commit } from "conventional-commits-parser";
+import semverInc from "semver/functions/inc";
+
+import conventionalCommitsParser from "conventional-commits-parser";
 import { generateChangelogFromParsedCommits } from "./utils";
 import {
-  ConventionalChangelogCommit,
-  Message,
-  parser,
-  toConventionalChangelogFormat,
-} from "@conventional-commits/parser";
-
-type ActionArgs = {
-  repoToken: string;
-  title: string;
-  preRelease: boolean;
-  automaticReleaseTag: string;
-};
-
-type CreateReleaseParams =
-  Endpoints["POST /repos/{owner}/{repo}/releases"]["parameters"];
-
-type GitGetRefParams =
-  Endpoints["GET /repos/{owner}/{repo}/git/ref/{ref}"]["parameters"];
-
-type CreateRefParams =
-  Endpoints["POST /repos/{owner}/{repo}/git/refs"]["parameters"];
-
-type ReposListTagsParams =
-  Endpoints["GET /repos/{owner}/{repo}/tags"]["parameters"];
-
-type GetReleaseByTagParams =
-  Endpoints["GET /repos/{owner}/{repo}/releases/tags/{tag}"]["parameters"];
-
-type ReposCompareCommitsResponseCommitsItem =
-  Endpoints["GET /repos/{owner}/{repo}/compare/{base}...{head}"]["response"]["data"]["commits"][0];
-
-type GitCommit =
-  Endpoints["GET /repos/{owner}/{repo}/git/commits/{commit_sha}"]["response"]["data"];
-
-type BaseheadCommits =
-  RestEndpointMethodTypes["repos"]["compareCommitsWithBasehead"]["response"];
-
-type BaseheadCommit = BaseheadCommits["data"]["commits"][0];
-
-type OctokitClient = InstanceType<typeof Octokit>;
+  ActionArgs,
+  BaseheadCommits,
+  CreateRefParams,
+  CreateReleaseParams,
+  GetReleaseByTagParams,
+  GitGetRefParams,
+  OctokitClient,
+  ParsedCommit,
+  ReposListTagsParams,
+} from "./typings";
 
 function validateArgs(): ActionArgs {
   const args = {
@@ -67,14 +38,16 @@ export async function main() {
     const args = validateArgs();
     const context = new Context();
 
+    if (!args.repoToken) {
+      core.setFailed(
+        "No repo token specified. Please set the GITHUB_TOKEN environment variable.",
+      );
+      return;
+    }
+
     const octokit = new Octokit({
       auth: args.repoToken,
     });
-
-    if (!args.repoToken) {
-      core.setFailed("No repo token found");
-      return;
-    }
 
     core.startGroup("Initializing action");
     core.debug(`Github context ${JSON.stringify(context)}`);
@@ -116,10 +89,6 @@ export async function main() {
       context.repo.repo,
       commitsSinceRelease,
     );
-
-    core.info(`Changelog: ${changelog}`);
-
-    core.info("Stringified changes: " + JSON.stringify(changelog));
 
     if (args.automaticReleaseTag) {
       await createReleaseTag(octokit, {
@@ -211,7 +180,9 @@ async function searchForPreviousReleaseTag(
   currentReleaseTag: string,
   tagInfo: ReposListTagsParams,
 ) {
-  const validSemver = semverValid(currentReleaseTag);
+  const validSemver = semverValid(
+    semverInc(currentReleaseTag, "prerelease", "pre", false),
+  );
   if (!validSemver) {
     core.setFailed("No valid semver tag found");
     return;
@@ -223,7 +194,7 @@ async function searchForPreviousReleaseTag(
   const tagList = tl
     .map((tag: any) => {
       core.debug(`Found tag ${tag.name}`);
-      const t = semverValid(tag.name);
+      const t = semverValid(semverInc(tag.name, "prerelease", "pre", false));
       return {
         ...tag,
         semverTag: t,
@@ -291,11 +262,6 @@ async function getCommitsSinceRelease(
   return commits;
 }
 
-export type ParsedCommit = {
-  commitMsg: Commit;
-  commit: BaseheadCommit;
-};
-
 async function getChangelog(
   octokit: OctokitClient,
   owner: string,
@@ -305,7 +271,7 @@ async function getChangelog(
   const parsedCommits: ParsedCommit[] = [];
 
   for (const commit of commits) {
-    core.info(`Processing commit ${JSON.stringify(commit)}`);
+    core.info(`Processing commit ${commit.sha}`);
     core.info(
       `Searching for pull requests associated with commit ${commit.sha}`,
     );
@@ -321,8 +287,6 @@ async function getChangelog(
         `Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`,
       );
     }
-
-    core.info(`Unparsed commit message: ${commit.commit.message}`);
 
     const changelogCommit = conventionalCommitsParser.sync(
       commit.commit.message,
@@ -345,8 +309,6 @@ async function getChangelog(
   }
 
   const changelog = generateChangelogFromParsedCommits(parsedCommits);
-  core.info("Changelog:");
-  core.info(changelog);
 
   return changelog;
 }

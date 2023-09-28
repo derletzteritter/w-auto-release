@@ -1,5 +1,5 @@
 name: "W Auto Release"
-description: "Auto release for GitHub"
+description: "Auto release for Github projects"
 inputs:
   title:
     description: "The title for the release"
@@ -8,7 +8,7 @@ inputs:
     description: "If the release is a pre release"
     required: false
   automatic_release_tag:
-    description: "Release tag should be the same"
+    description: "Automatic release tag. Will delete the old."
     required: false
 runs:
   using: "node20"
