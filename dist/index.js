@@ -10566,7 +10566,6 @@ const semver_1 = __nccwpck_require__(5467);
 const conventional_commits_parser_1 = __importDefault(__nccwpck_require__(9742));
 const utils_1 = __nccwpck_require__(4990);
 function validateArgs() {
-    var _a;
     const args = {
         repoToken: process.env.GITHUB_TOKEN,
         title: core.getInput("title", { required: false }),
@@ -10574,7 +10573,7 @@ function validateArgs() {
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-        environment: (_a = core.getInput("environment", { required: false })) !== null && _a !== void 0 ? _a : "test",
+        environment: core.getInput("environment", { required: false })
     };
     return args;
 }

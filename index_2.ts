@@ -27,7 +27,7 @@ function validateArgs(): ActionArgs {
         environment: core.getInput("environment", {required: false}) as
             | "dev"
             | "test"
-            | "prod" ?? "test",
+            | "prod"
     };
 
     return args;
