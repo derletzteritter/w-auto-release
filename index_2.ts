@@ -1,22 +1,22 @@
 import { Octokit } from "@octokit/rest";
 import * as core from "@actions/core";
 import { Context } from "@actions/github/lib/context";
-/*import semverValid from "semver/functions/valid";
+import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverInc from "semver/functions/inc";
-import recommendedBump from "recommended-bump";*/
+/*import recommendedBump from "recommended-bump";*/
 import {
     ActionArgs,
-/*    BaseheadCommits,
+    BaseheadCommits,
     CreateRefParams,
     CreateReleaseParams,
     GetReleaseByTagParams,
     GitGetRefParams,
     OctokitClient,
     ParsedCommit,
-    ReposListTagsParams,*/
+    ReposListTagsParams,
 } from "./typings";
-/*import {prerelease, ReleaseType} from "semver";*/
+import {prerelease, ReleaseType} from "semver";
 
 function validateArgs(): ActionArgs {
     const args = {
@@ -26,10 +26,10 @@ function validateArgs(): ActionArgs {
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-       /* environment: core.getInput("place", { required: false }) as
+        environment: core.getInput("place", { required: false }) as
             | "dev"
             | "test"
-            | "prod" ?? "test",*/
+            | "prod" ?? "test",
     };
 
     return args;
@@ -51,8 +51,9 @@ export async function main() {
             auth: args.repoToken,
         });
 
-        core.startGroup("Initializing action");
         core.debug(`Github context ${JSON.stringify(context)}`);
+        core.startGroup("Initializing action");
+        core.info(`Running in ${args.preRelease ? "pre-release" : "release"} mode`);
         core.endGroup();
 
         core.startGroup("Getting release tags");
@@ -68,12 +69,12 @@ export async function main() {
             return;
         }*/
 
-  /*      const previousReleaseTag = args.automaticReleaseTag
+        const previousReleaseTag = args.automaticReleaseTag
             ? args.automaticReleaseTag
             : await searchForPreviousReleaseTag(octokit, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-            }, args.environment);*/
+            }, args.environment);
 
         core.endGroup();
 
@@ -126,17 +127,16 @@ export async function main() {
     return tag;
 }*/
 
-/*
 async function searchForPreviousReleaseTag(
     octokit: OctokitClient,
     tagInfo: ReposListTagsParams,
     environment: "dev" | "test" | "prod",
 ) {
-    const validSemver = semverValid(currentReleaseTag);
+/*    const validSemver = semverValid(currentReleaseTag);
     if (!validSemver) {
         core.setFailed("No valid semver tag found");
         return;
-    }
+    }*/
 
     const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
     const tl = await octokit.paginate(listTagsOptions);
@@ -150,20 +150,20 @@ async function searchForPreviousReleaseTag(
                     ...tag,
                     semverTag: t,
                 }
+            } else {
+                const t = semverValid(tag.name);
+                return {
+                    ...tag,
+                    semverTag: t,
+                };
             }
-
-            const t = semverValid(tag.name);
-            return {
-                ...tag,
-                semverTag: t,
-            };
         })
         .filter((tag) => tag.semverTag !== null)
         .sort((a, b) => semverRcompare(a.semverTag, b.semverTag));
 
     // return the latest tag
-    return tagList[0].name;
-
+    return tagList[0] ? tagList[0].name : "";
+/*
     let previousReleaseTag = "";
     for (const tag of tagList) {
         if (semverLt(tag.semverTag, currentReleaseTag)) {
@@ -172,9 +172,8 @@ async function searchForPreviousReleaseTag(
         }
     }
 
-    return previousReleaseTag;
+    return previousReleaseTag;*/
 }
-*/
 
 /*async function getCommitsSinceRelease(
     octokit: OctokitClient,
