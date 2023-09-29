@@ -5636,6 +5636,512 @@ function removeHook(state, name, method) {
 
 /***/ }),
 
+/***/ 9742:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+const { Transform } = __nccwpck_require__(2781)
+const parser = __nccwpck_require__(7309)
+const regex = __nccwpck_require__(3433)
+
+function assignOpts (options) {
+  options = {
+    headerPattern: /^(\w*)(?:\(([\w$.\-*/ ]*)\))?: (.*)$/,
+    headerCorrespondence: ['type', 'scope', 'subject'],
+    referenceActions: [
+      'close',
+      'closes',
+      'closed',
+      'fix',
+      'fixes',
+      'fixed',
+      'resolve',
+      'resolves',
+      'resolved'
+    ],
+    issuePrefixes: ['#'],
+    noteKeywords: ['BREAKING CHANGE', 'BREAKING-CHANGE'],
+    fieldPattern: /^-(.*?)-$/,
+    revertPattern: /^Revert\s"([\s\S]*)"\s*This reverts commit (\w*)\./,
+    revertCorrespondence: ['header', 'hash'],
+    warn: function () {},
+    mergePattern: null,
+    mergeCorrespondence: null,
+    ...options
+  }
+
+  if (typeof options.headerPattern === 'string') {
+    options.headerPattern = new RegExp(options.headerPattern)
+  }
+
+  if (typeof options.headerCorrespondence === 'string') {
+    options.headerCorrespondence = options.headerCorrespondence.split(',')
+  }
+
+  if (typeof options.referenceActions === 'string') {
+    options.referenceActions = options.referenceActions.split(',')
+  }
+
+  if (typeof options.issuePrefixes === 'string') {
+    options.issuePrefixes = options.issuePrefixes.split(',')
+  }
+
+  if (typeof options.noteKeywords === 'string') {
+    options.noteKeywords = options.noteKeywords.split(',')
+  }
+
+  if (typeof options.fieldPattern === 'string') {
+    options.fieldPattern = new RegExp(options.fieldPattern)
+  }
+
+  if (typeof options.revertPattern === 'string') {
+    options.revertPattern = new RegExp(options.revertPattern)
+  }
+
+  if (typeof options.revertCorrespondence === 'string') {
+    options.revertCorrespondence = options.revertCorrespondence.split(',')
+  }
+
+  if (typeof options.mergePattern === 'string') {
+    options.mergePattern = new RegExp(options.mergePattern)
+  }
+
+  return options
+}
+
+function conventionalCommitsParser (options) {
+  options = assignOpts(options)
+  const reg = regex(options)
+
+  return new Transform({
+    objectMode: true,
+    highWaterMark: 16,
+    transform (data, enc, cb) {
+      let commit
+
+      try {
+        commit = parser(data.toString(), options, reg)
+        cb(null, commit)
+      } catch (err) {
+        if (options.warn === true) {
+          cb(err)
+        } else {
+          options.warn(err.toString())
+          cb(null, '')
+        }
+      }
+    }
+  })
+}
+
+function sync (commit, options) {
+  options = assignOpts(options)
+  const reg = regex(options)
+
+  return parser(commit, options, reg)
+}
+
+module.exports = conventionalCommitsParser
+module.exports.sync = sync
+
+
+/***/ }),
+
+/***/ 7309:
+/***/ ((module) => {
+
+"use strict";
+
+
+const CATCH_ALL = /()(.+)/gi
+const SCISSOR = '# ------------------------ >8 ------------------------'
+
+function trimOffNewlines (input) {
+  const result = input.match(/[^\r\n]/)
+  if (!result) {
+    return ''
+  }
+  const firstIndex = result.index
+  let lastIndex = input.length - 1
+  while (input[lastIndex] === '\r' || input[lastIndex] === '\n') {
+    lastIndex--
+  }
+  return input.substring(firstIndex, lastIndex + 1)
+}
+
+function append (src, line) {
+  if (src) {
+    src += '\n' + line
+  } else {
+    src = line
+  }
+
+  return src
+}
+
+function getCommentFilter (char) {
+  return function (line) {
+    return line.charAt(0) !== char
+  }
+}
+
+function truncateToScissor (lines) {
+  const scissorIndex = lines.indexOf(SCISSOR)
+
+  if (scissorIndex === -1) {
+    return lines
+  }
+
+  return lines.slice(0, scissorIndex)
+}
+
+function getReferences (input, regex) {
+  const references = []
+  let referenceSentences
+  let referenceMatch
+
+  const reApplicable = input.match(regex.references) !== null
+    ? regex.references
+    : CATCH_ALL
+
+  while ((referenceSentences = reApplicable.exec(input))) {
+    const action = referenceSentences[1] || null
+    const sentence = referenceSentences[2]
+
+    while ((referenceMatch = regex.referenceParts.exec(sentence))) {
+      let owner = null
+      let repository = referenceMatch[1] || ''
+      const ownerRepo = repository.split('/')
+
+      if (ownerRepo.length > 1) {
+        owner = ownerRepo.shift()
+        repository = ownerRepo.join('/')
+      }
+
+      const reference = {
+        action,
+        owner,
+        repository: repository || null,
+        issue: referenceMatch[3],
+        raw: referenceMatch[0],
+        prefix: referenceMatch[2]
+      }
+
+      references.push(reference)
+    }
+  }
+
+  return references
+}
+
+function passTrough () {
+  return true
+}
+
+function parser (raw, options, regex) {
+  if (!raw || !raw.trim()) {
+    throw new TypeError('Expected a raw commit')
+  }
+
+  if (!options || (typeof options === 'object' && !Object.keys(options).length)) {
+    throw new TypeError('Expected options')
+  }
+
+  if (!regex) {
+    throw new TypeError('Expected regex')
+  }
+
+  let currentProcessedField
+  let mentionsMatch
+  const otherFields = {}
+  const commentFilter = typeof options.commentChar === 'string'
+    ? getCommentFilter(options.commentChar)
+    : passTrough
+  const gpgFilter = line => !line.match(/^\s*gpg:/)
+
+  const rawLines = trimOffNewlines(raw).split(/\r?\n/)
+  const lines = truncateToScissor(rawLines).filter(commentFilter).filter(gpgFilter)
+
+  let continueNote = false
+  let isBody = true
+  const headerCorrespondence = options.headerCorrespondence?.map(function (part) {
+    return part.trim()
+  }) || []
+  const revertCorrespondence = options.revertCorrespondence?.map(function (field) {
+    return field.trim()
+  }) || []
+  const mergeCorrespondence = options.mergeCorrespondence?.map(function (field) {
+    return field.trim()
+  }) || []
+
+  let body = null
+  let footer = null
+  let header = null
+  const mentions = []
+  let merge = null
+  const notes = []
+  const references = []
+  let revert = null
+
+  if (lines.length === 0) {
+    return {
+      body,
+      footer,
+      header,
+      mentions,
+      merge,
+      notes,
+      references,
+      revert,
+      scope: null,
+      subject: null,
+      type: null
+    }
+  }
+
+  // msg parts
+  merge = lines.shift()
+  const mergeParts = {}
+  const headerParts = {}
+  body = ''
+  footer = ''
+
+  const mergeMatch = merge.match(options.mergePattern)
+  if (mergeMatch && options.mergePattern) {
+    merge = mergeMatch[0]
+
+    header = lines.shift()
+    while (header !== undefined && !header.trim()) {
+      header = lines.shift()
+    }
+    if (!header) {
+      header = ''
+    }
+
+    mergeCorrespondence.forEach(function (partName, index) {
+      const partValue = mergeMatch[index + 1] || null
+      mergeParts[partName] = partValue
+    })
+  } else {
+    header = merge
+    merge = null
+
+    mergeCorrespondence.forEach(function (partName) {
+      mergeParts[partName] = null
+    })
+  }
+
+  const headerMatch = header.match(options.headerPattern)
+  if (headerMatch) {
+    headerCorrespondence.forEach(function (partName, index) {
+      const partValue = headerMatch[index + 1] || null
+      headerParts[partName] = partValue
+    })
+  } else {
+    headerCorrespondence.forEach(function (partName) {
+      headerParts[partName] = null
+    })
+  }
+
+  references.push(...getReferences(header, {
+    references: regex.references,
+    referenceParts: regex.referenceParts
+  }))
+
+  // body or footer
+  lines.forEach(function (line) {
+    if (options.fieldPattern) {
+      const fieldMatch = options.fieldPattern.exec(line)
+
+      if (fieldMatch) {
+        currentProcessedField = fieldMatch[1]
+
+        return
+      }
+
+      if (currentProcessedField) {
+        otherFields[currentProcessedField] = append(otherFields[currentProcessedField], line)
+
+        return
+      }
+    }
+
+    let referenceMatched
+
+    // this is a new important note
+    const notesMatch = line.match(regex.notes)
+    if (notesMatch) {
+      continueNote = true
+      isBody = false
+      footer = append(footer, line)
+
+      const note = {
+        title: notesMatch[1],
+        text: notesMatch[2]
+      }
+
+      notes.push(note)
+
+      return
+    }
+
+    const lineReferences = getReferences(line, {
+      references: regex.references,
+      referenceParts: regex.referenceParts
+    })
+
+    if (lineReferences.length > 0) {
+      isBody = false
+      referenceMatched = true
+      continueNote = false
+    }
+
+    Array.prototype.push.apply(references, lineReferences)
+
+    if (referenceMatched) {
+      footer = append(footer, line)
+
+      return
+    }
+
+    if (continueNote) {
+      notes[notes.length - 1].text = append(notes[notes.length - 1].text, line)
+      footer = append(footer, line)
+
+      return
+    }
+
+    if (isBody) {
+      body = append(body, line)
+    } else {
+      footer = append(footer, line)
+    }
+  })
+
+  if (options.breakingHeaderPattern && notes.length === 0) {
+    const breakingHeader = header.match(options.breakingHeaderPattern)
+    if (breakingHeader) {
+      const noteText = breakingHeader[3] // the description of the change.
+      notes.push({
+        title: 'BREAKING CHANGE',
+        text: noteText
+      })
+    }
+  }
+
+  while ((mentionsMatch = regex.mentions.exec(raw))) {
+    mentions.push(mentionsMatch[1])
+  }
+
+  // does this commit revert any other commit?
+  const revertMatch = raw.match(options.revertPattern)
+  if (revertMatch) {
+    revert = {}
+    revertCorrespondence.forEach(function (partName, index) {
+      const partValue = revertMatch[index + 1] || null
+      revert[partName] = partValue
+    })
+  } else {
+    revert = null
+  }
+
+  notes.forEach(function (note) {
+    note.text = trimOffNewlines(note.text)
+  })
+
+  const msg = {
+    ...headerParts,
+    ...mergeParts,
+    merge,
+    header,
+    body: body ? trimOffNewlines(body) : null,
+    footer: footer ? trimOffNewlines(footer) : null,
+    notes,
+    references,
+    mentions,
+    revert,
+    ...otherFields
+  }
+
+  return msg
+}
+
+module.exports = parser
+
+
+/***/ }),
+
+/***/ 3433:
+/***/ ((module) => {
+
+"use strict";
+
+
+const reNomatch = /(?!.*)/
+
+function join (array, joiner) {
+  return array
+    .map(function (val) {
+      return val.trim()
+    })
+    .filter(function (val) {
+      return val.length
+    })
+    .join(joiner)
+}
+
+function getNotesRegex (noteKeywords, notesPattern) {
+  if (!noteKeywords) {
+    return reNomatch
+  }
+
+  const noteKeywordsSelection = join(noteKeywords, '|')
+
+  if (!notesPattern) {
+    return new RegExp('^[\\s|*]*(' + noteKeywordsSelection + ')[:\\s]+(.*)', 'i')
+  }
+
+  return notesPattern(noteKeywordsSelection)
+}
+
+function getReferencePartsRegex (issuePrefixes, issuePrefixesCaseSensitive) {
+  if (!issuePrefixes) {
+    return reNomatch
+  }
+
+  const flags = issuePrefixesCaseSensitive ? 'g' : 'gi'
+  return new RegExp('(?:.*?)??\\s*([\\w-\\.\\/]*?)??(' + join(issuePrefixes, '|') + ')([\\w-]*\\d+)', flags)
+}
+
+function getReferencesRegex (referenceActions) {
+  if (!referenceActions) {
+    // matches everything
+    return /()(.+)/gi
+  }
+
+  const joinedKeywords = join(referenceActions, '|')
+  return new RegExp('(' + joinedKeywords + ')(?:\\s+(.*?))(?=(?:' + joinedKeywords + ')|$)', 'gi')
+}
+
+module.exports = function (options) {
+  options = options || {}
+  const reNotes = getNotesRegex(options.noteKeywords, options.notesPattern)
+  const reReferenceParts = getReferencePartsRegex(options.issuePrefixes, options.issuePrefixesCaseSensitive)
+  const reReferences = getReferencesRegex(options.referenceActions)
+
+  return {
+    notes: reNotes,
+    referenceParts: reReferenceParts,
+    references: reReferences,
+    mentions: /@([\w-]+)/g
+  }
+}
+
+
+/***/ }),
+
 /***/ 8943:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -5661,14 +6167,6 @@ class Deprecation extends Error {
 
 exports.Deprecation = Deprecation;
 
-
-/***/ }),
-
-/***/ 8358:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-/* module decorator */ module = __nccwpck_require__.nmd(module);
-const e=(function(){return this||Function("return this")()})(),{apply:t,defineProperty:n}=Reflect,{freeze:r}=Object,{hasOwnProperty:l}=Object.prototype,o=Symbol.for,{type:i,versions:u}=process,{filename:a,id:s,parent:c}=module,_=x(u,"electron"),p=_&&"renderer"===i;let d="";"string"==typeof s&&s.startsWith("internal/")&&(d=q("internal/esm/loader"));const f=__nccwpck_require__(8188),{Script:m}=__nccwpck_require__(6144),{createCachedData:y,runInNewContext:h,runInThisContext:b}=m.prototype,{sep:g}=__nccwpck_require__(1017),{readFileSync:v}=__nccwpck_require__(7147),w=new f(s);function q(e){let t;try{const{internalBinding:n}=__nccwpck_require__(1466),r=n("natives");x(r,e)&&(t=r[e])}catch(e){}return"string"==typeof t?t:""}function x(e,n){return null!=e&&t(l,e,[n])}function D(){return M(require,w,T),w.exports}function O(e,t){return D()(e,t)}function j(e,t){try{return v(e,t)}catch(e){}return null}let C,F;w.filename=a,w.parent=c;let I="",S="";""!==d?(S=d,F={__proto__:null,filename:"esm.js"}):(I=__dirname+g+"node_modules"+g+".cache"+g+"esm",C=j(__nccwpck_require__.ab + ".data.blob"),S=j(__nccwpck_require__.ab + "loader.js","utf8"),null===C&&(C=void 0),null===S&&(S=""),F={__proto__:null,cachedData:C,filename:a,produceCachedData:"function"!=typeof y});const k=new m("const __global__ = this;(function (require, module, __shared__) { "+S+"\n});",F);let M,T;if(M=p?t(b,k,[{__proto__:null,filename:a}]):t(h,k,[{__proto__:null,global:e},{__proto__:null,filename:a}]),T=D(),""!==I){const{dir:e}=T.package;let t=e.get(I);if(void 0===t){let n=C;void 0===n&&(n=null),t={buffer:C,compile:new Map([["esm",{circular:0,code:null,codeWithTDZ:null,filename:null,firstAwaitOutsideFunction:null,firstReturnOutsideFunction:null,mtime:-1,scriptData:n,sourceType:1,transforms:0,yieldIndex:-1}]]),meta:new Map},e.set(I,t)}const{pendingScripts:n}=T;let r=n.get(I);void 0===r&&(r=new Map,n.set(I,r)),r.set("esm",k)}n(O,T.symbol.package,{__proto__:null,value:!0}),n(O,T.customInspectKey,{__proto__:null,value:()=>"esm enabled"}),n(O,o("esm:package"),{__proto__:null,value:!0}),r(O),module.exports=O;
 
 /***/ }),
 
@@ -6105,33 +6603,6 @@ function onceStrict (fn) {
   f.called = false
   return f
 }
-
-
-/***/ }),
-
-/***/ 9461:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-/* module decorator */ module = __nccwpck_require__.nmd(module);
-
-
-const path = __nccwpck_require__(1017);
-const esmLoader = __nccwpck_require__(8358);
-const pkg = __nccwpck_require__(6768);
-
-const esmRequire = esmLoader(module);
-
-function interop(x) {
-  if (Object.keys(x).length === 1 && x.default) {
-    return x.default;
-  }
-  return x;
-}
-
-const mod = esmRequire(path.join(__dirname, pkg.module));
-
-module.exports = interop(mod);
 
 
 /***/ }),
@@ -10091,8 +10562,9 @@ const context_1 = __nccwpck_require__(5213);
 const valid_1 = __importDefault(__nccwpck_require__(9146));
 const rcompare_1 = __importDefault(__nccwpck_require__(2314));
 const inc_1 = __importDefault(__nccwpck_require__(8445));
-const recommended_bump_1 = __importDefault(__nccwpck_require__(9461));
 const semver_1 = __nccwpck_require__(5467);
+const conventional_commits_parser_1 = __importDefault(__nccwpck_require__(9742));
+const utils_1 = __nccwpck_require__(4990);
 function validateArgs() {
     var _a;
     const args = {
@@ -10122,14 +10594,6 @@ async function main() {
         core.info(`Running in ${args.preRelease ? "pre-release" : "release"} mode`);
         core.endGroup();
         core.startGroup("Getting release tags");
-        // since this is being triggerd from a workflow dispatch event, we need to create a new tag based on the current version
-        /*const releaseTag = args.automaticReleaseTag
-            ? args.automaticReleaseTag
-            : parseGitTag(context.ref);*/
-        /*if (!releaseTag) {
-            core.setFailed("No release tag found");
-            return;
-        }*/
         core.endGroup();
         const previousReleaseTag = args.automaticReleaseTag
             ? args.automaticReleaseTag
@@ -10147,9 +10611,10 @@ async function main() {
         const commits = commitsSinceRelease.map((commit) => {
             return commit.commit.message;
         });
+        const parsedCommits = await parseCommits(octokit, context.repo.owner, context.repo.repo, commitsSinceRelease);
         core.info(`Found ${commitsSinceRelease.length} commits since last release`);
         core.info(JSON.stringify(commits));
-        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
         core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     }
     catch (err) {
@@ -10163,10 +10628,9 @@ async function main() {
 }
 exports.main = main;
 const createNewReleaseTag = async (currentTag, commits, environment) => {
-    let { increment } = (0, recommended_bump_1.default)(commits);
+    let increment = (0, utils_1.getNextSemverBump)(commits);
     if (environment === 'test') {
-        const preinc = ("pre" + increment);
-        // @ts-ignore
+        const preinc = "pre" + increment;
         const preTag = (0, inc_1.default)(currentTag, preinc, "beta");
         core.info(`New pre-release tag: ${preTag}`);
         return preTag;
@@ -10174,11 +10638,6 @@ const createNewReleaseTag = async (currentTag, commits, environment) => {
     return (0, inc_1.default)(currentTag, increment);
 };
 async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
-    /*    const validSemver = semverValid(currentReleaseTag);
-        if (!validSemver) {
-            core.setFailed("No valid semver tag found");
-            return;
-        }*/
     const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
     const tl = await octokit.paginate(listTagsOptions);
     const tagList = tl
@@ -10203,16 +10662,6 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
         .sort((a, b) => (0, rcompare_1.default)(a.semverTag, b.semverTag));
     // return the latest tag
     return tagList[0] ? tagList[0].name : "";
-    /*
-        let previousReleaseTag = "";
-        for (const tag of tagList) {
-            if (semverLt(tag.semverTag, currentReleaseTag)) {
-                previousReleaseTag = tag.name;
-                break;
-            }
-        }
-
-        return previousReleaseTag;*/
 }
 async function getCommitsSinceRelease(octokit, tagInfo, currentSha) {
     var _a;
@@ -10257,15 +10706,131 @@ const parseGitTag = (inputRef) => {
     }
     return resMatch[2];
 };
+async function parseCommits(octokit, owner, repo, commits) {
+    const parsedCommits = [];
+    for (const commit of commits) {
+        core.info(`Processing commit ${commit.sha}`);
+        core.info(`Searching for pull requests associated with commit ${commit.sha}`);
+        const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
+            owner,
+            repo,
+            commit_sha: commit.sha,
+        });
+        if (pulls.data.length) {
+            core.info(`Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`);
+        }
+        const changelogCommit = conventional_commits_parser_1.default.sync(commit.commit.message, {
+            mergePattern: /^Merge pull request #(\d+) from (.*)$/,
+        });
+        if (changelogCommit.merge) {
+            core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
+            continue;
+        }
+        const parsedCommit = {
+            commitMsg: changelogCommit,
+            commit,
+        };
+        parsedCommits.push(parsedCommit);
+    }
+    return parsedCommits;
+}
 main();
 
 
 /***/ }),
 
-/***/ 1466:
-/***/ ((module) => {
+/***/ 4990:
+/***/ ((__unused_webpack_module, exports) => {
 
-module.exports = eval("require")("internal/bootstrap/loaders");
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getNextSemverBump = exports.generateChangelogFromParsedCommits = exports.ConventionalCommitTypes = exports.getShortSHA = void 0;
+const getShortSHA = (sha) => {
+    const coreAbbrev = 7;
+    return sha.substring(0, coreAbbrev);
+};
+exports.getShortSHA = getShortSHA;
+var ConventionalCommitTypes;
+(function (ConventionalCommitTypes) {
+    ConventionalCommitTypes["feat"] = "Features";
+    ConventionalCommitTypes["fix"] = "Bug Fixes";
+    ConventionalCommitTypes["docs"] = "Documentation";
+    ConventionalCommitTypes["style"] = "Styles";
+    ConventionalCommitTypes["refactor"] = "Code Refactoring";
+    ConventionalCommitTypes["perf"] = "Performance Improvements";
+    ConventionalCommitTypes["test"] = "Tests";
+    ConventionalCommitTypes["build"] = "Builds";
+    ConventionalCommitTypes["ci"] = "Continuous Integration";
+    ConventionalCommitTypes["chore"] = "Chores";
+    ConventionalCommitTypes["revert"] = "Reverts";
+    ConventionalCommitTypes["breaking"] = "Breaking Changes";
+})(ConventionalCommitTypes || (exports.ConventionalCommitTypes = ConventionalCommitTypes = {}));
+const getFormattedChangelogEntry = (parsedCommit) => {
+    var _a, _b, _c;
+    let entry = "";
+    const url = parsedCommit.commit.html_url;
+    const sha = (0, exports.getShortSHA)(parsedCommit.commit.sha);
+    const author = (_c = (_b = (_a = parsedCommit.commit.commit) === null || _a === void 0 ? void 0 : _a.author) === null || _b === void 0 ? void 0 : _b.name) !== null && _c !== void 0 ? _c : "Unknown";
+    entry = `- ${sha}: ${parsedCommit.commitMsg.header} (${author})`;
+    if (parsedCommit.commitMsg.type) {
+        const scopeStr = parsedCommit.commitMsg.scope
+            ? `**${parsedCommit.commitMsg.scope}**: `
+            : "";
+        entry = `- ${scopeStr}${parsedCommit.commitMsg.subject} ([${author}](${url}))`;
+    }
+    return entry;
+};
+const generateChangelogFromParsedCommits = (parsedCommits) => {
+    let changelog = "";
+    for (const key of Object.keys(ConventionalCommitTypes)) {
+        const clBlock = parsedCommits
+            .filter((val) => val.commitMsg.type === key)
+            .map((val) => getFormattedChangelogEntry(val))
+            .reduce((acc, line) => `${acc}\n${line}`, "");
+        if (clBlock) {
+            changelog += `\n\n## ${ConventionalCommitTypes[key]}\n`;
+            changelog += clBlock.trim();
+        }
+    }
+    // Commits
+    const commits = parsedCommits
+        .filter((val) => val.commitMsg.type === null)
+        .map((val) => getFormattedChangelogEntry(val))
+        .reduce((acc, line) => `${acc}\n${line}`, "");
+    if (commits) {
+        changelog += "\n\n## Commits\n";
+        changelog += commits.trim();
+    }
+    return changelog;
+};
+exports.generateChangelogFromParsedCommits = generateChangelogFromParsedCommits;
+function getNextSemverBump(commits) {
+    let hasBreakingChange = false;
+    let hasNewFeature = false;
+    for (const commit of commits) {
+        const commitType = commit.commitMsg.type;
+        // Check for breaking changes
+        if (commitType === "breaking") {
+            hasBreakingChange = true;
+        }
+        // Check for new features
+        if (commitType === "feat") {
+            hasNewFeature = true;
+        }
+    }
+    // Determine semver bump based on commit types
+    if (hasBreakingChange) {
+        return "major";
+    }
+    else if (hasNewFeature) {
+        return "minor";
+    }
+    else {
+        return "patch";
+    }
+}
+exports.getNextSemverBump = getNextSemverBump;
 
 
 /***/ }),
@@ -10318,14 +10883,6 @@ module.exports = require("https");
 
 /***/ }),
 
-/***/ 8188:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("module");
-
-/***/ }),
-
 /***/ 1808:
 /***/ ((module) => {
 
@@ -10350,6 +10907,14 @@ module.exports = require("path");
 
 /***/ }),
 
+/***/ 2781:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("stream");
+
+/***/ }),
+
 /***/ 4404:
 /***/ ((module) => {
 
@@ -10363,22 +10928,6 @@ module.exports = require("tls");
 
 "use strict";
 module.exports = require("util");
-
-/***/ }),
-
-/***/ 6144:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("vm");
-
-/***/ }),
-
-/***/ 6768:
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"name":"recommended-bump","description":"Calculates recommended bump (next semver version) based on given array of commit messages following Conventional Commits specification","license":"Apache-2.0","licenseStart":"2018","scripts":{"docs":"docks --outfile .verb.md && verb","lint":"eslint \'**/*.js\' --cache --fix --quiet --format codeframe","test-only":"asia -r esm","test":"nyc asia","precommit":"yarn run lint && yarn run test-only","commit":"yarn dry","dry":"git add -A && git status --porcelain && gitcommit","release":"new-release"},"engines":{"node":"^8.10.0 || >=10.13.0"},"resolutions":{"esm":"^3.2.25"},"dependencies":{"esm":"^3.2.25","parse-commit-message":"4.0.0-canary.20"},"devDependencies":{"@tunnckocore/config":"^1.0.2","asia":"^0.19.7","dedent":"^0.7.0"},"files":["src","index.js"],"main":"index.js","module":"src/index.js","typings":"src/index.d.ts","version":"1.5.2","repository":"tunnckoCoreLabs/recommended-bump","homepage":"https://github.com/tunnckoCoreLabs/recommended-bump","author":"Charlike Mike Reagent (https://tunnckocore.com)","publishConfig":{"access":"public","tag":"latest"},"renovate":{"extends":"tunnckocore"},"verb":{"run":true,"toc":{"render":true,"method":"preWrite","maxdepth":4},"layout":"empty","tasks":["readme"],"related":{"list":["asia","charlike","docks","gitcommit","@tunnckocore/execa","@tunnckocore/package-json","@tunnckocore/create-project","@tunnckocore/update","@tunnckocore/config","@tunnckocore/scripts"]},"lint":{"reflinks":true},"reflinks":["new-release","execa","parse-commit-message"]}}');
 
 /***/ })
 
@@ -10396,8 +10945,8 @@ module.exports = JSON.parse('{"name":"recommended-bump","description":"Calculate
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			id: moduleId,
-/******/ 			loaded: false,
+/******/ 			// no module.id needed
+/******/ 			// no module.loaded needed
 /******/ 			exports: {}
 /******/ 		};
 /******/ 	
@@ -10410,23 +10959,11 @@ module.exports = JSON.parse('{"name":"recommended-bump","description":"Calculate
 /******/ 			if(threw) delete __webpack_module_cache__[moduleId];
 /******/ 		}
 /******/ 	
-/******/ 		// Flag the module as loaded
-/******/ 		module.loaded = true;
-/******/ 	
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/node module decorator */
-/******/ 	(() => {
-/******/ 		__nccwpck_require__.nmd = (module) => {
-/******/ 			module.paths = [];
-/******/ 			if (!module.children) module.children = [];
-/******/ 			return module;
-/******/ 		};
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/compat */
 /******/ 	
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";

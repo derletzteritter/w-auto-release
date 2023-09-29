@@ -23,6 +23,9 @@ dependencies:
   conventional-changelog-angular:
     specifier: ^7.0.0
     version: 7.0.0
+  conventional-changelog-preset-loader:
+    specifier: ^4.1.0
+    version: 4.1.0
   conventional-commits-parser:
     specifier: ^5.0.0
     version: 5.0.0
@@ -40,6 +43,9 @@ devDependencies:
   '@octokit/types':
     specifier: ^11.1.0
     version: 11.1.0
+  '@types/conventional-changelog-preset-loader':
+    specifier: ^2.3.3
+    version: 2.3.3
   '@types/conventional-commits-parser':
     specifier: ^3.0.4
     version: 3.0.4
@@ -286,14 +292,20 @@ packages:
       '@types/git-raw-commits': 2.0.1
       '@types/node': 20.6.0
       '@types/normalize-package-data': 2.4.1
-    dev: false
+
+  /@types/conventional-changelog-preset-loader@2.3.3:
+    resolution: {integrity: sha512-x+RULOu4j0xZi4J2oS4fWJ+2nK9NfZ6SxEZ7xW7PX7DRFyOxy1DQEwxo4Vwh5cqS/Dz6RNQWSPg7eshvIJu51w==}
+    dependencies:
+      '@types/conventional-changelog-core': 4.2.4
+      '@types/conventional-changelog-writer': 4.0.6
+      '@types/conventional-commits-parser': 3.0.4
+    dev: true
 
   /@types/conventional-changelog-writer@4.0.6:
     resolution: {integrity: sha512-OYdHr9V/R1RxUMibC5OVx6v0u9g+ILCmLLMBCKThuANjci8G4dR8HNDPWAgcSdv2sq+sQ+eGL3ULPorGXXMboA==}
     dependencies:
       '@types/conventional-commits-parser': 3.0.4
       '@types/node': 20.6.0
-    dev: false
 
   /@types/conventional-commits-parser@3.0.4:
     resolution: {integrity: sha512-nO3LTqFyExqXWAAfcsGh63gPLmYZSAqlLZfhqJ57qkgtyd0BA8S8M/mqtWCD/PvegjuaGk1z4UG5Hy7bZq79zA==}
@@ -306,20 +318,17 @@ packages:
       '@types/conventional-changelog-core': 4.2.4
       '@types/conventional-changelog-writer': 4.0.6
       '@types/conventional-commits-parser': 3.0.4
-    dev: false
 
   /@types/git-raw-commits@2.0.1:
     resolution: {integrity: sha512-vE2lbXxqJ0AqMDoP4N6d+WVfbcBla9+z8IL6e+37JNQIwYZCYY0z3J7hdpY8D/VGwFZ0yIYQLcqk8eCnfXsaEg==}
     dependencies:
       '@types/node': 20.6.0
-    dev: false
 
   /@types/node@20.6.0:
     resolution: {integrity: sha512-najjVq5KN2vsH2U/xyh2opaSEz6cZMR2SetLIlxlj08nOcmPOemJmUK2o4kUzfLqfrWE0PIrNeE16XhYDd3nqg==}
 
   /@types/normalize-package-data@2.4.1:
     resolution: {integrity: sha512-Gj7cI7z+98M282Tqmp2K5EIsoouUEzbBJhQQzDE3jSIRk6r9gsz0oUokqIUR4u1R3dMHo0pDHM7sNOHyhulypw==}
-    dev: false
 
   /@types/semver@7.5.2:
     resolution: {integrity: sha512-7aqorHYgdNO4DM36stTiGO3DvKoex9TQRwsJU6vMaFGyqpBA1MNZkz+PG3gaNUPpTAOYhT1WR7M1JyA3fbS9Cw==}

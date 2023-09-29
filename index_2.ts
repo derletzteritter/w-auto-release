@@ -4,19 +4,17 @@ import {Context} from "@actions/github/lib/context";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverInc from "semver/functions/inc";
-import recommendedBump from "recommended-bump";
 import {
     ActionArgs,
     BaseheadCommits,
-    CreateRefParams,
-    CreateReleaseParams,
-    GetReleaseByTagParams,
     GitGetRefParams,
     OctokitClient,
     ParsedCommit,
     ReposListTagsParams,
 } from "./typings";
 import {prerelease, ReleaseType} from "semver";
+import conventionalCommitsParser, {Commit} from "conventional-commits-parser";
+import {getNextSemverBump} from "./utils";
 
 function validateArgs(): ActionArgs {
     const args = {
@@ -57,17 +55,6 @@ export async function main() {
         core.endGroup();
 
         core.startGroup("Getting release tags");
-
-        // since this is being triggerd from a workflow dispatch event, we need to create a new tag based on the current version
-
-        /*const releaseTag = args.automaticReleaseTag
-            ? args.automaticReleaseTag
-            : parseGitTag(context.ref);*/
-
-        /*if (!releaseTag) {
-            core.setFailed("No release tag found");
-            return;
-        }*/
         core.endGroup();
 
 
@@ -80,29 +67,30 @@ export async function main() {
 
         core.info(`Previous release tag: ${previousReleaseTag}`)
 
-         // create new tag based on the current version
+        // create new tag based on the current version
 
-         const commitsSinceRelease = await getCommitsSinceRelease(
-             octokit,
-             {
-                 owner: context.repo.owner,
-                 repo: context.repo.repo,
-                 ref: `tags/${previousReleaseTag}`,
-             },
-             context.sha,
-         );
+        const commitsSinceRelease = await getCommitsSinceRelease(
+            octokit,
+            {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${previousReleaseTag}`,
+            },
+            context.sha,
+        );
 
-         const commits = commitsSinceRelease.map((commit) => {
-             return commit.commit.message;
-         });
+        const commits = commitsSinceRelease.map((commit) => {
+            return commit.commit.message;
+        });
 
-         core.info(`Found ${commitsSinceRelease.length} commits since last release`);
-         core.info(JSON.stringify(commits));
+        const parsedCommits = await parseCommits(octokit, context.repo.owner, context.repo.repo, commitsSinceRelease);
 
-         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+        core.info(`Found ${commitsSinceRelease.length} commits since last release`);
+        core.info(JSON.stringify(commits));
 
+        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
 
-         core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
+        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     } catch (err) {
         if (err instanceof Error) {
             core.setFailed(err?.message);
@@ -114,12 +102,11 @@ export async function main() {
     }
 }
 
-const createNewReleaseTag = async (currentTag: string, commits: string[], environment: "dev" | "test" | "prod") => {
-    let { increment } = recommendedBump(commits);
+const createNewReleaseTag = async (currentTag: string, commits: ParsedCommit[], environment: "dev" | "test" | "prod") => {
+    let increment = getNextSemverBump(commits);
 
     if (environment === 'test') {
-        const preinc = ("pre" + increment);
-        // @ts-ignore
+        const preinc = "pre" + increment as ReleaseType;
         const preTag = semverInc(currentTag, preinc, "beta");
 
         core.info(`New pre-release tag: ${preTag}`);
@@ -134,12 +121,6 @@ async function searchForPreviousReleaseTag(
     tagInfo: ReposListTagsParams,
     environment: "dev" | "test" | "prod",
 ) {
-    /*    const validSemver = semverValid(currentReleaseTag);
-        if (!validSemver) {
-            core.setFailed("No valid semver tag found");
-            return;
-        }*/
-
     const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
     const tl = await octokit.paginate(listTagsOptions);
 
@@ -165,16 +146,6 @@ async function searchForPreviousReleaseTag(
 
     // return the latest tag
     return tagList[0] ? tagList[0].name : "";
-    /*
-        let previousReleaseTag = "";
-        for (const tag of tagList) {
-            if (semverLt(tag.semverTag, currentReleaseTag)) {
-                previousReleaseTag = tag.name;
-                break;
-            }
-        }
-
-        return previousReleaseTag;*/
 }
 
 async function getCommitsSinceRelease(
@@ -234,5 +205,54 @@ const parseGitTag = (inputRef: string): string => {
     }
     return resMatch[2];
 };
+
+async function parseCommits(
+    octokit: OctokitClient,
+    owner: string,
+    repo: string,
+    commits: BaseheadCommits["data"]["commits"],
+) {
+    const parsedCommits: ParsedCommit[] = [];
+
+    for (const commit of commits) {
+        core.info(`Processing commit ${commit.sha}`);
+        core.info(
+            `Searching for pull requests associated with commit ${commit.sha}`,
+        );
+
+        const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
+            owner,
+            repo,
+            commit_sha: commit.sha,
+        });
+
+        if (pulls.data.length) {
+            core.info(
+                `Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`,
+            );
+        }
+
+        const changelogCommit = conventionalCommitsParser.sync(
+            commit.commit.message,
+            {
+                mergePattern: /^Merge pull request #(\d+) from (.*)$/,
+            },
+        );
+
+        if (changelogCommit.merge) {
+            core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
+            continue;
+        }
+
+        const parsedCommit: ParsedCommit = {
+            commitMsg: changelogCommit,
+            commit,
+        };
+
+        parsedCommits.push(parsedCommit);
+    }
+
+    return parsedCommits;
+}
 
 main();
