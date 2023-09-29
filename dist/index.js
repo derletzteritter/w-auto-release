@@ -10574,7 +10574,7 @@ function validateArgs() {
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-        environment: (_a = core.getInput("place", { required: false })) !== null && _a !== void 0 ? _a : "test",
+        environment: (_a = core.getInput("environment", { required: false })) !== null && _a !== void 0 ? _a : "test",
     };
     return args;
 }

@@ -24,7 +24,7 @@ function validateArgs(): ActionArgs {
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-        environment: core.getInput("place", {required: false}) as
+        environment: core.getInput("environment", {required: false}) as
             | "dev"
             | "test"
             | "prod" ?? "test",
