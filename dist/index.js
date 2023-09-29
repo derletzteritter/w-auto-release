@@ -10615,6 +10615,7 @@ async function main() {
         core.info(`Found ${commitsSinceRelease.length} commits since last release`);
         core.info(JSON.stringify(commits));
         core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
+        core.info("ENVIRONMENT: " + args.environment);
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
         core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     }

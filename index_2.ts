@@ -90,6 +90,7 @@ export async function main() {
 
         core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
 
+        core.info("ENVIRONMENT: " + args.environment)
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
 
         core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
