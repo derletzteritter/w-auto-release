@@ -1,6 +1,6 @@
-import { Octokit } from "@octokit/rest";
+import {Octokit} from "@octokit/rest";
 import * as core from "@actions/core";
-import { Context } from "@actions/github/lib/context";
+import {Context} from "@actions/github/lib/context";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverInc from "semver/functions/inc";
@@ -21,12 +21,12 @@ import {prerelease, ReleaseType} from "semver";
 function validateArgs(): ActionArgs {
     const args = {
         repoToken: process.env.GITHUB_TOKEN as string,
-        title: core.getInput("title", { required: false }),
-        preRelease: JSON.parse(core.getInput("prerelease", { required: false })),
+        title: core.getInput("title", {required: false}),
+        preRelease: JSON.parse(core.getInput("prerelease", {required: false})),
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-        environment: core.getInput("place", { required: false }) as
+        environment: core.getInput("place", {required: false}) as
             | "dev"
             | "test"
             | "prod" ?? "test",
@@ -70,6 +70,7 @@ export async function main() {
         }*/
         core.endGroup();
 
+
         const previousReleaseTag = args.automaticReleaseTag
             ? args.automaticReleaseTag
             : await searchForPreviousReleaseTag(octokit, {
@@ -77,31 +78,30 @@ export async function main() {
                 repo: context.repo.repo,
             }, args.environment);
 
+        core.info(`Previous release tag: ${previousReleaseTag}`)
 
-        core.debug(`Previous release tag: ${previousReleaseTag}`)
+        /* // create new tag based on the current version
 
-       /* // create new tag based on the current version
+         const commitsSinceRelease = await getCommitsSinceRelease(
+             octokit,
+             {
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 ref: `tags/${previousReleaseTag}`,
+             },
+             context.sha,
+         );
 
-        const commitsSinceRelease = await getCommitsSinceRelease(
-            octokit,
-            {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `tags/${previousReleaseTag}`,
-            },
-            context.sha,
-        );
+         const commits = commitsSinceRelease.map((commit) => {
+             return commit.commit.message;
+         });
 
-        const commits = commitsSinceRelease.map((commit) => {
-            return commit.commit.message;
-        });
+         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
 
-        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+         core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
+         core.debug(JSON.stringify(commitsSinceRelease));
 
-        core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
-        core.debug(JSON.stringify(commitsSinceRelease));
-
-        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
+         core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
     } catch (err) {
         if (err instanceof Error) {
             core.setFailed(err?.message);
@@ -134,11 +134,11 @@ async function searchForPreviousReleaseTag(
     tagInfo: ReposListTagsParams,
     environment: "dev" | "test" | "prod",
 ) {
-/*    const validSemver = semverValid(currentReleaseTag);
-    if (!validSemver) {
-        core.setFailed("No valid semver tag found");
-        return;
-    }*/
+    /*    const validSemver = semverValid(currentReleaseTag);
+        if (!validSemver) {
+            core.setFailed("No valid semver tag found");
+            return;
+        }*/
 
     const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
     const tl = await octokit.paginate(listTagsOptions);
@@ -165,16 +165,16 @@ async function searchForPreviousReleaseTag(
 
     // return the latest tag
     return tagList[0] ? tagList[0].name : "";
-/*
-    let previousReleaseTag = "";
-    for (const tag of tagList) {
-        if (semverLt(tag.semverTag, currentReleaseTag)) {
-            previousReleaseTag = tag.name;
-            break;
+    /*
+        let previousReleaseTag = "";
+        for (const tag of tagList) {
+            if (semverLt(tag.semverTag, currentReleaseTag)) {
+                previousReleaseTag = tag.name;
+                break;
+            }
         }
-    }
 
-    return previousReleaseTag;*/
+        return previousReleaseTag;*/
 }
 
 /*async function getCommitsSinceRelease(

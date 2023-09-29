@@ -10100,9 +10100,9 @@ async function main() {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
             }, args.environment);
-        core.debug(`Previous release tag: ${previousReleaseTag}`);
+        core.info(`Previous release tag: ${previousReleaseTag}`);
         /* // create new tag based on the current version
- 
+
          const commitsSinceRelease = await getCommitsSinceRelease(
              octokit,
              {
@@ -10112,16 +10112,16 @@ async function main() {
              },
              context.sha,
          );
- 
+
          const commits = commitsSinceRelease.map((commit) => {
              return commit.commit.message;
          });
- 
+
          const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
- 
+
          core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
          core.debug(JSON.stringify(commitsSinceRelease));
- 
+
          core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
     }
     catch (err) {
@@ -10187,7 +10187,7 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
                 break;
             }
         }
-    
+
         return previousReleaseTag;*/
 }
 /*async function getCommitsSinceRelease(
