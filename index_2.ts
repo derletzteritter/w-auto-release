@@ -137,13 +137,17 @@ async function searchForPreviousReleaseTag(
         .map((tag: any) => {
             core.info(`Found tag ${tag.name}`);
             if (environment === 'test') {
+                core.info(`Environment is test, checking for prerelease tag`)
                 const t = prerelease(tag.name);
+                core.info(`Prerelease tag: ${t}`)
                 return {
                     ...tag,
                     semverTag: t,
                 }
             } else {
+                core.info(`Environment is not test, checking for semver tag`)
                 const t = semverValid(tag.name);
+                core.info(`Semver tag: ${t}`)
                 return {
                     ...tag,
                     semverTag: t,
@@ -152,6 +156,8 @@ async function searchForPreviousReleaseTag(
         })
         .filter((tag) => tag.semverTag !== null)
         .sort((a, b) => semverRcompare(a.semverTag, b.semverTag));
+
+    core.info(`Found ${tagList.length} semver tags`);
 
     // return the latest tag
     return tagList[0] ? tagList[0].name : "";

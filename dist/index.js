@@ -10648,14 +10648,18 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
         .map((tag) => {
         core.info(`Found tag ${tag.name}`);
         if (environment === 'test') {
+            core.info(`Environment is test, checking for prerelease tag`);
             const t = (0, semver_1.prerelease)(tag.name);
+            core.info(`Prerelease tag: ${t}`);
             return {
                 ...tag,
                 semverTag: t,
             };
         }
         else {
+            core.info(`Environment is not test, checking for semver tag`);
             const t = (0, valid_1.default)(tag.name);
+            core.info(`Semver tag: ${t}`);
             return {
                 ...tag,
                 semverTag: t,
@@ -10664,6 +10668,7 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
     })
         .filter((tag) => tag.semverTag !== null)
         .sort((a, b) => (0, rcompare_1.default)(a.semverTag, b.semverTag));
+    core.info(`Found ${tagList.length} semver tags`);
     // return the latest tag
     return tagList[0] ? tagList[0].name : "";
 }
