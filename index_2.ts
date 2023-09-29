@@ -139,10 +139,12 @@ async function searchForPreviousReleaseTag(
             if (environment === 'test') {
                 core.info(`Environment is test, checking for prerelease tag`)
                 const t = prerelease(tag.name);
-                core.info(`Prerelease tag: ${t}`)
-                return {
-                    ...tag,
-                    semverTag: t,
+                if (t) {
+                    core.info(`Prerelease tag: ${t}`)
+                    return {
+                        ...tag,
+                        semverTag: t,
+                    }
                 }
             } else {
                 core.info(`Environment is not test, checking for semver tag`)
