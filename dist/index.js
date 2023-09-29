@@ -10101,28 +10101,21 @@ async function main() {
                 repo: context.repo.repo,
             }, args.environment);
         core.info(`Previous release tag: ${previousReleaseTag}`);
-        /* // create new tag based on the current version
-
-         const commitsSinceRelease = await getCommitsSinceRelease(
-             octokit,
-             {
-                 owner: context.repo.owner,
-                 repo: context.repo.repo,
-                 ref: `tags/${previousReleaseTag}`,
-             },
-             context.sha,
-         );
-
-         const commits = commitsSinceRelease.map((commit) => {
-             return commit.commit.message;
-         });
-
-         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
-
-         core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
-         core.debug(JSON.stringify(commitsSinceRelease));
-
-         core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
+        // create new tag based on the current version
+        const commitsSinceRelease = await getCommitsSinceRelease(octokit, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: `tags/${previousReleaseTag}`,
+        }, context.sha);
+        const commits = commitsSinceRelease.map((commit) => {
+            return commit.commit.message;
+        });
+        core.info(`Found ${commitsSinceRelease.length} commits since last release`);
+        core.info(JSON.stringify(commits));
+        /*         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+        
+        
+                 core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
     }
     catch (err) {
         if (err instanceof Error) {
@@ -10190,54 +10183,41 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
 
         return previousReleaseTag;*/
 }
-/*async function getCommitsSinceRelease(
-    octokit: OctokitClient,
-    tagInfo: GitGetRefParams,
-    currentSha: string,
-) {
+async function getCommitsSinceRelease(octokit, tagInfo, currentSha) {
+    var _a;
     core.startGroup("Fetching commit history");
     let resp;
-
     let previousReleaseRef = "";
     core.info(`Searching for SHA corresponding to release tag ${tagInfo.ref}`);
-
     try {
         await octokit.git.getRef(tagInfo);
         previousReleaseRef = parseGitTag(tagInfo.ref);
-    } catch (err) {
-        core.info(
-            `Could not find SHA for release tag ${tagInfo.ref}. Assuming this is the first release.`,
-        );
+    }
+    catch (err) {
+        core.info(`Could not find SHA for release tag ${tagInfo.ref}. Assuming this is the first release.`);
         previousReleaseRef = "HEAD";
     }
-
     core.info(`Fetching commits betwen ${previousReleaseRef} and ${currentSha}`);
-
     try {
         resp = await octokit.repos.compareCommitsWithBasehead({
             repo: tagInfo.repo,
             owner: tagInfo.owner,
             basehead: `${previousReleaseRef}...${currentSha}`,
         });
-
         core.info(`Found ${resp.data.commits.length} commits since last release`);
-    } catch (err) {
-        core.warning(
-            `Could not fetch commits between ${previousReleaseRef} and ${currentSha}`,
-        );
     }
-
-    let commits: BaseheadCommits["data"]["commits"] = [];
-    if (resp?.data?.commits) {
+    catch (err) {
+        core.warning(`Could not fetch commits between ${previousReleaseRef} and ${currentSha}`);
+    }
+    let commits = [];
+    if ((_a = resp === null || resp === void 0 ? void 0 : resp.data) === null || _a === void 0 ? void 0 : _a.commits) {
         commits = resp.data.commits;
     }
-
     core.debug(`Currently ${commits.length} commits in the list`);
-
     core.endGroup();
     return commits;
-}*/
-/*const parseGitTag = (inputRef: string): string => {
+}
+const parseGitTag = (inputRef) => {
     const re = /^(refs\/)?tags\/(.*)$/;
     const resMatch = inputRef.match(re);
     if (!resMatch || !resMatch[2]) {
@@ -10245,7 +10225,7 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
         return "";
     }
     return resMatch[2];
-};*/
+};
 main();
 
 

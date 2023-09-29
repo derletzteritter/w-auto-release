@@ -80,7 +80,7 @@ export async function main() {
 
         core.info(`Previous release tag: ${previousReleaseTag}`)
 
-        /* // create new tag based on the current version
+         // create new tag based on the current version
 
          const commitsSinceRelease = await getCommitsSinceRelease(
              octokit,
@@ -96,10 +96,11 @@ export async function main() {
              return commit.commit.message;
          });
 
-         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+         core.info(`Found ${commitsSinceRelease.length} commits since last release`);
+         core.info(JSON.stringify(commits));
 
-         core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
-         core.debug(JSON.stringify(commitsSinceRelease));
+/*         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+
 
          core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
     } catch (err) {
@@ -177,7 +178,7 @@ async function searchForPreviousReleaseTag(
         return previousReleaseTag;*/
 }
 
-/*async function getCommitsSinceRelease(
+async function getCommitsSinceRelease(
     octokit: OctokitClient,
     tagInfo: GitGetRefParams,
     currentSha: string,
@@ -223,9 +224,9 @@ async function searchForPreviousReleaseTag(
 
     core.endGroup();
     return commits;
-}*/
+}
 
-/*const parseGitTag = (inputRef: string): string => {
+const parseGitTag = (inputRef: string): string => {
     const re = /^(refs\/)?tags\/(.*)$/;
     const resMatch = inputRef.match(re);
     if (!resMatch || !resMatch[2]) {
@@ -233,6 +234,6 @@ async function searchForPreviousReleaseTag(
         return "";
     }
     return resMatch[2];
-};*/
+};
 
 main();
