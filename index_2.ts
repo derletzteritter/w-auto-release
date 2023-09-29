@@ -1,23 +1,22 @@
 import { Octokit } from "@octokit/rest";
 import * as core from "@actions/core";
 import { Context } from "@actions/github/lib/context";
-import semverValid from "semver/functions/valid";
+/*import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverInc from "semver/functions/inc";
-// @ts-ignore
-import recommendedBump from "recommended-bump";
+import recommendedBump from "recommended-bump";*/
 import {
     ActionArgs,
-    BaseheadCommits,
+/*    BaseheadCommits,
     CreateRefParams,
     CreateReleaseParams,
     GetReleaseByTagParams,
     GitGetRefParams,
     OctokitClient,
     ParsedCommit,
-    ReposListTagsParams,
+    ReposListTagsParams,*/
 } from "./typings";
-import {prerelease, ReleaseType} from "semver";
+/*import {prerelease, ReleaseType} from "semver";*/
 
 function validateArgs(): ActionArgs {
     const args = {
@@ -111,7 +110,7 @@ export async function main() {
     }
 }
 
-const createNewReleaseTag = async (currentTag: string, commits: string[], environment: "dev" | "test" | "prod") => {
+/*const createNewReleaseTag = async (currentTag: string, commits: string[], environment: "dev" | "test" | "prod") => {
     let { increment, patch, isBreaking } = recommendedBump(commits);
 
     if (environment === 'test') {
@@ -125,18 +124,19 @@ const createNewReleaseTag = async (currentTag: string, commits: string[], enviro
     const tag = semverInc(currentTag, increment);
 
     return tag;
-}
+}*/
 
+/*
 async function searchForPreviousReleaseTag(
     octokit: OctokitClient,
     tagInfo: ReposListTagsParams,
     environment: "dev" | "test" | "prod",
 ) {
-    /*const validSemver = semverValid(currentReleaseTag);
+    const validSemver = semverValid(currentReleaseTag);
     if (!validSemver) {
         core.setFailed("No valid semver tag found");
         return;
-    }*/
+    }
 
     const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
     const tl = await octokit.paginate(listTagsOptions);
@@ -164,7 +164,7 @@ async function searchForPreviousReleaseTag(
     // return the latest tag
     return tagList[0].name;
 
-    /*let previousReleaseTag = "";
+    let previousReleaseTag = "";
     for (const tag of tagList) {
         if (semverLt(tag.semverTag, currentReleaseTag)) {
             previousReleaseTag = tag.name;
@@ -172,10 +172,11 @@ async function searchForPreviousReleaseTag(
         }
     }
 
-    return previousReleaseTag;*/
+    return previousReleaseTag;
 }
+*/
 
-async function getCommitsSinceRelease(
+/*async function getCommitsSinceRelease(
     octokit: OctokitClient,
     tagInfo: GitGetRefParams,
     currentSha: string,
@@ -221,9 +222,9 @@ async function getCommitsSinceRelease(
 
     core.endGroup();
     return commits;
-}
+}*/
 
-const parseGitTag = (inputRef: string): string => {
+/*const parseGitTag = (inputRef: string): string => {
     const re = /^(refs\/)?tags\/(.*)$/;
     const resMatch = inputRef.match(re);
     if (!resMatch || !resMatch[2]) {
@@ -231,6 +232,6 @@ const parseGitTag = (inputRef: string): string => {
         return "";
     }
     return resMatch[2];
-};
+};*/
 
 main();
