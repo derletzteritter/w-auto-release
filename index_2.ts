@@ -4,7 +4,7 @@ import {Context} from "@actions/github/lib/context";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverInc from "semver/functions/inc";
-/*import recommendedBump from "recommended-bump";*/
+import recommendedBump from "recommended-bump";
 import {
     ActionArgs,
     BaseheadCommits,
@@ -99,10 +99,10 @@ export async function main() {
          core.info(`Found ${commitsSinceRelease.length} commits since last release`);
          core.info(JSON.stringify(commits));
 
-/*         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
 
 
-         core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
+         core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     } catch (err) {
         if (err instanceof Error) {
             core.setFailed(err?.message);
@@ -114,21 +114,22 @@ export async function main() {
     }
 }
 
-/*const createNewReleaseTag = async (currentTag: string, commits: string[], environment: "dev" | "test" | "prod") => {
-    let { increment, patch, isBreaking } = recommendedBump(commits);
+const createNewReleaseTag = async (currentTag: string, commits: string[], environment: "dev" | "test" | "prod") => {
+    let { increment } = recommendedBump(commits);
 
     if (environment === 'test') {
-        const preinc = ("pre" + increment) as ReleaseType;
+        const preinc = ("pre" + increment);
+        // @ts-ignore
         const preTag = semverInc(currentTag, preinc, "beta");
 
-        console.log("Preinc", preTag);
+        core.info(`New pre-release tag: ${preTag}`);
         return preTag;
     }
 
     const tag = semverInc(currentTag, increment);
 
     return tag;
-}*/
+}
 
 async function searchForPreviousReleaseTag(
     octokit: OctokitClient,

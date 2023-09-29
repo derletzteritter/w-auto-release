@@ -5664,6 +5664,14 @@ exports.Deprecation = Deprecation;
 
 /***/ }),
 
+/***/ 8358:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/* module decorator */ module = __nccwpck_require__.nmd(module);
+const e=(function(){return this||Function("return this")()})(),{apply:t,defineProperty:n}=Reflect,{freeze:r}=Object,{hasOwnProperty:l}=Object.prototype,o=Symbol.for,{type:i,versions:u}=process,{filename:a,id:s,parent:c}=module,_=x(u,"electron"),p=_&&"renderer"===i;let d="";"string"==typeof s&&s.startsWith("internal/")&&(d=q("internal/esm/loader"));const f=__nccwpck_require__(8188),{Script:m}=__nccwpck_require__(6144),{createCachedData:y,runInNewContext:h,runInThisContext:b}=m.prototype,{sep:g}=__nccwpck_require__(1017),{readFileSync:v}=__nccwpck_require__(7147),w=new f(s);function q(e){let t;try{const{internalBinding:n}=__nccwpck_require__(1466),r=n("natives");x(r,e)&&(t=r[e])}catch(e){}return"string"==typeof t?t:""}function x(e,n){return null!=e&&t(l,e,[n])}function D(){return M(require,w,T),w.exports}function O(e,t){return D()(e,t)}function j(e,t){try{return v(e,t)}catch(e){}return null}let C,F;w.filename=a,w.parent=c;let I="",S="";""!==d?(S=d,F={__proto__:null,filename:"esm.js"}):(I=__dirname+g+"node_modules"+g+".cache"+g+"esm",C=j(__nccwpck_require__.ab + ".data.blob"),S=j(__nccwpck_require__.ab + "loader.js","utf8"),null===C&&(C=void 0),null===S&&(S=""),F={__proto__:null,cachedData:C,filename:a,produceCachedData:"function"!=typeof y});const k=new m("const __global__ = this;(function (require, module, __shared__) { "+S+"\n});",F);let M,T;if(M=p?t(b,k,[{__proto__:null,filename:a}]):t(h,k,[{__proto__:null,global:e},{__proto__:null,filename:a}]),T=D(),""!==I){const{dir:e}=T.package;let t=e.get(I);if(void 0===t){let n=C;void 0===n&&(n=null),t={buffer:C,compile:new Map([["esm",{circular:0,code:null,codeWithTDZ:null,filename:null,firstAwaitOutsideFunction:null,firstReturnOutsideFunction:null,mtime:-1,scriptData:n,sourceType:1,transforms:0,yieldIndex:-1}]]),meta:new Map},e.set(I,t)}const{pendingScripts:n}=T;let r=n.get(I);void 0===r&&(r=new Map,n.set(I,r)),r.set("esm",k)}n(O,T.symbol.package,{__proto__:null,value:!0}),n(O,T.customInspectKey,{__proto__:null,value:()=>"esm enabled"}),n(O,o("esm:package"),{__proto__:null,value:!0}),r(O),module.exports=O;
+
+/***/ }),
+
 /***/ 9723:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -6097,6 +6105,33 @@ function onceStrict (fn) {
   f.called = false
   return f
 }
+
+
+/***/ }),
+
+/***/ 9461:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+/* module decorator */ module = __nccwpck_require__.nmd(module);
+
+
+const path = __nccwpck_require__(1017);
+const esmLoader = __nccwpck_require__(8358);
+const pkg = __nccwpck_require__(6768);
+
+const esmRequire = esmLoader(module);
+
+function interop(x) {
+  if (Object.keys(x).length === 1 && x.default) {
+    return x.default;
+  }
+  return x;
+}
+
+const mod = esmRequire(path.join(__dirname, pkg.module));
+
+module.exports = interop(mod);
 
 
 /***/ }),
@@ -10055,6 +10090,8 @@ const core = __importStar(__nccwpck_require__(8434));
 const context_1 = __nccwpck_require__(5213);
 const valid_1 = __importDefault(__nccwpck_require__(9146));
 const rcompare_1 = __importDefault(__nccwpck_require__(2314));
+const inc_1 = __importDefault(__nccwpck_require__(8445));
+const recommended_bump_1 = __importDefault(__nccwpck_require__(9461));
 const semver_1 = __nccwpck_require__(5467);
 function validateArgs() {
     var _a;
@@ -10112,10 +10149,8 @@ async function main() {
         });
         core.info(`Found ${commitsSinceRelease.length} commits since last release`);
         core.info(JSON.stringify(commits));
-        /*         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
-        
-        
-                 core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
+        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     }
     catch (err) {
         if (err instanceof Error) {
@@ -10127,21 +10162,18 @@ async function main() {
     }
 }
 exports.main = main;
-/*const createNewReleaseTag = async (currentTag: string, commits: string[], environment: "dev" | "test" | "prod") => {
-    let { increment, patch, isBreaking } = recommendedBump(commits);
-
+const createNewReleaseTag = async (currentTag, commits, environment) => {
+    let { increment } = (0, recommended_bump_1.default)(commits);
     if (environment === 'test') {
-        const preinc = ("pre" + increment) as ReleaseType;
-        const preTag = semverInc(currentTag, preinc, "beta");
-
-        console.log("Preinc", preTag);
+        const preinc = ("pre" + increment);
+        // @ts-ignore
+        const preTag = (0, inc_1.default)(currentTag, preinc, "beta");
+        core.info(`New pre-release tag: ${preTag}`);
         return preTag;
     }
-
-    const tag = semverInc(currentTag, increment);
-
+    const tag = (0, inc_1.default)(currentTag, increment);
     return tag;
-}*/
+};
 async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
     /*    const validSemver = semverValid(currentReleaseTag);
         if (!validSemver) {
@@ -10231,6 +10263,14 @@ main();
 
 /***/ }),
 
+/***/ 1466:
+/***/ ((module) => {
+
+module.exports = eval("require")("internal/bootstrap/loaders");
+
+
+/***/ }),
+
 /***/ 9491:
 /***/ ((module) => {
 
@@ -10279,6 +10319,14 @@ module.exports = require("https");
 
 /***/ }),
 
+/***/ 8188:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("module");
+
+/***/ }),
+
 /***/ 1808:
 /***/ ((module) => {
 
@@ -10317,6 +10365,22 @@ module.exports = require("tls");
 "use strict";
 module.exports = require("util");
 
+/***/ }),
+
+/***/ 6144:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("vm");
+
+/***/ }),
+
+/***/ 6768:
+/***/ ((module) => {
+
+"use strict";
+module.exports = JSON.parse('{"name":"recommended-bump","description":"Calculates recommended bump (next semver version) based on given array of commit messages following Conventional Commits specification","license":"Apache-2.0","licenseStart":"2018","scripts":{"docs":"docks --outfile .verb.md && verb","lint":"eslint \'**/*.js\' --cache --fix --quiet --format codeframe","test-only":"asia -r esm","test":"nyc asia","precommit":"yarn run lint && yarn run test-only","commit":"yarn dry","dry":"git add -A && git status --porcelain && gitcommit","release":"new-release"},"engines":{"node":"^8.10.0 || >=10.13.0"},"resolutions":{"esm":"^3.2.25"},"dependencies":{"esm":"^3.2.25","parse-commit-message":"4.0.0-canary.20"},"devDependencies":{"@tunnckocore/config":"^1.0.2","asia":"^0.19.7","dedent":"^0.7.0"},"files":["src","index.js"],"main":"index.js","module":"src/index.js","typings":"src/index.d.ts","version":"1.5.2","repository":"tunnckoCoreLabs/recommended-bump","homepage":"https://github.com/tunnckoCoreLabs/recommended-bump","author":"Charlike Mike Reagent (https://tunnckocore.com)","publishConfig":{"access":"public","tag":"latest"},"renovate":{"extends":"tunnckocore"},"verb":{"run":true,"toc":{"render":true,"method":"preWrite","maxdepth":4},"layout":"empty","tasks":["readme"],"related":{"list":["asia","charlike","docks","gitcommit","@tunnckocore/execa","@tunnckocore/package-json","@tunnckocore/create-project","@tunnckocore/update","@tunnckocore/config","@tunnckocore/scripts"]},"lint":{"reflinks":true},"reflinks":["new-release","execa","parse-commit-message"]}}');
+
 /***/ })
 
 /******/ 	});
@@ -10333,8 +10397,8 @@ module.exports = require("util");
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			// no module.id needed
-/******/ 			// no module.loaded needed
+/******/ 			id: moduleId,
+/******/ 			loaded: false,
 /******/ 			exports: {}
 /******/ 		};
 /******/ 	
@@ -10347,11 +10411,23 @@ module.exports = require("util");
 /******/ 			if(threw) delete __webpack_module_cache__[moduleId];
 /******/ 		}
 /******/ 	
+/******/ 		// Flag the module as loaded
+/******/ 		module.loaded = true;
+/******/ 	
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/node module decorator */
+/******/ 	(() => {
+/******/ 		__nccwpck_require__.nmd = (module) => {
+/******/ 			module.paths = [];
+/******/ 			if (!module.children) module.children = [];
+/******/ 			return module;
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/compat */
 /******/ 	
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
