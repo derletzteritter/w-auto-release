@@ -10171,8 +10171,7 @@ const createNewReleaseTag = async (currentTag, commits, environment) => {
         core.info(`New pre-release tag: ${preTag}`);
         return preTag;
     }
-    const tag = (0, inc_1.default)(currentTag, increment);
-    return tag;
+    return (0, inc_1.default)(currentTag, increment);
 };
 async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
     /*    const validSemver = semverValid(currentReleaseTag);

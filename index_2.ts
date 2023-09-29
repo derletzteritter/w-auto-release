@@ -126,9 +126,7 @@ const createNewReleaseTag = async (currentTag: string, commits: string[], enviro
         return preTag;
     }
 
-    const tag = semverInc(currentTag, increment);
-
-    return tag;
+    return semverInc(currentTag, increment);
 }
 
 async function searchForPreviousReleaseTag(
