@@ -10095,7 +10095,6 @@ const inc_1 = __importDefault(__nccwpck_require__(8445));
 const recommended_bump_1 = __importDefault(__nccwpck_require__(9461));
 const semver_1 = __nccwpck_require__(5467);
 function validateArgs() {
-    var _a;
     const args = {
         repoToken: process.env.GITHUB_TOKEN,
         title: core.getInput("title", { required: false }),
@@ -10103,7 +10102,10 @@ function validateArgs() {
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-        environment: (_a = core.getInput("place", { required: false })) !== null && _a !== void 0 ? _a : "test",
+        /* environment: core.getInput("place", { required: false }) as
+             | "dev"
+             | "test"
+             | "prod" ?? "test",*/
     };
     return args;
 }
@@ -10130,26 +10132,35 @@ async function main() {
             core.setFailed("No release tag found");
             return;
         }*/
-        const previousReleaseTag = args.automaticReleaseTag
-            ? args.automaticReleaseTag
-            : await searchForPreviousReleaseTag(octokit, {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-            }, args.environment);
+        /*      const previousReleaseTag = args.automaticReleaseTag
+                  ? args.automaticReleaseTag
+                  : await searchForPreviousReleaseTag(octokit, {
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                  }, args.environment);*/
         core.endGroup();
-        // create new tag based on the current version
-        const commitsSinceRelease = await getCommitsSinceRelease(octokit, {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: `tags/${previousReleaseTag}`,
-        }, context.sha);
-        const commits = commitsSinceRelease.map((commit) => {
-            return commit.commit.message;
-        });
-        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
-        core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
-        core.debug(JSON.stringify(commitsSinceRelease));
-        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
+        /* // create new tag based on the current version
+ 
+         const commitsSinceRelease = await getCommitsSinceRelease(
+             octokit,
+             {
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 ref: `tags/${previousReleaseTag}`,
+             },
+             context.sha,
+         );
+ 
+         const commits = commitsSinceRelease.map((commit) => {
+             return commit.commit.message;
+         });
+ 
+         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, commits, args.environment);
+ 
+         core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
+         core.debug(JSON.stringify(commitsSinceRelease));
+ 
+         core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
     }
     catch (err) {
         if (err instanceof Error) {

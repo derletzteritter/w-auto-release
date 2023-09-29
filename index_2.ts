@@ -3,13 +3,9 @@ import * as core from "@actions/core";
 import { Context } from "@actions/github/lib/context";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
-import semverLt from "semver/functions/lt";
 import semverInc from "semver/functions/inc";
 // @ts-ignore
 import recommendedBump from "recommended-bump";
-
-import conventionalCommitsParser from "conventional-commits-parser";
-import { generateChangelogFromParsedCommits } from "./utils";
 import {
     ActionArgs,
     BaseheadCommits,
@@ -31,10 +27,10 @@ function validateArgs(): ActionArgs {
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-        environment: core.getInput("place", { required: false }) as
+       /* environment: core.getInput("place", { required: false }) as
             | "dev"
             | "test"
-            | "prod" ?? "test",
+            | "prod" ?? "test",*/
     };
 
     return args;
@@ -73,16 +69,16 @@ export async function main() {
             return;
         }*/
 
-        const previousReleaseTag = args.automaticReleaseTag
+  /*      const previousReleaseTag = args.automaticReleaseTag
             ? args.automaticReleaseTag
             : await searchForPreviousReleaseTag(octokit, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-            }, args.environment);
+            }, args.environment);*/
 
         core.endGroup();
 
-        // create new tag based on the current version
+       /* // create new tag based on the current version
 
         const commitsSinceRelease = await getCommitsSinceRelease(
             octokit,
@@ -103,7 +99,7 @@ export async function main() {
         core.debug(`Found ${commitsSinceRelease.length} commits since last release`);
         core.debug(JSON.stringify(commitsSinceRelease));
 
-        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
+        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);*/
     } catch (err) {
         if (err instanceof Error) {
             core.setFailed(err?.message);
