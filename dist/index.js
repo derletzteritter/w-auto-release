@@ -10642,9 +10642,11 @@ const createNewReleaseTag = async (currentTag, commits, environment) => {
 async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
     const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
     const tl = await octokit.paginate(listTagsOptions);
+    core.info(`Found ${tl.length} tags`);
+    core.info(JSON.stringify(tl));
     const tagList = tl
         .map((tag) => {
-        core.debug(`Found tag ${tag.name}`);
+        core.info(`Found tag ${tag.name}`);
         if (environment === 'test') {
             const t = (0, semver_1.prerelease)(tag.name);
             return {
