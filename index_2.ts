@@ -68,6 +68,7 @@ export async function main() {
             core.setFailed("No release tag found");
             return;
         }*/
+        core.endGroup();
 
         const previousReleaseTag = args.automaticReleaseTag
             ? args.automaticReleaseTag
@@ -76,7 +77,6 @@ export async function main() {
                 repo: context.repo.repo,
             }, args.environment);
 
-        core.endGroup();
 
         core.debug(`Previous release tag: ${previousReleaseTag}`)
 
