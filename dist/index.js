@@ -10593,14 +10593,14 @@ async function main() {
         core.info(`Running in ${args.preRelease ? "pre-release" : "release"} mode`);
         core.endGroup();
         core.startGroup("Getting release tags");
-        core.endGroup();
         const previousReleaseTag = args.automaticReleaseTag
             ? args.automaticReleaseTag
             : await searchForPreviousReleaseTag(octokit, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-            }, args.environment);
+            }, "test");
         core.info(`Previous release tag: ${previousReleaseTag}`);
+        core.endGroup();
         // create new tag based on the current version
         const commitsSinceRelease = await getCommitsSinceRelease(octokit, {
             owner: context.repo.owner,
@@ -10615,7 +10615,7 @@ async function main() {
         core.info(JSON.stringify(commits));
         core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
         core.info("ENVIRONMENT: " + args.environment);
-        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
+        const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, "test");
         core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     }
     catch (err) {
