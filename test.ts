@@ -1,24 +1,29 @@
 import conventionalCommitsParser from "conventional-commits-parser";
-import conventionalRecommendedBump from "conventional-recommended-bump";
+import { ReleaseType, prerelease } from "semver";
+import inc from "semver/functions/inc";
+import recommendedBump from "recommended-bump";
+import { warning } from "@actions/core";
 
-function testTest() {
-  const transform = conventionalCommitsParser.sync("just fixing some stuff", {
-    mergePattern: /^Merge pull request #(\d+) from (.*)$/,
-  });
+async function testBump(isPreRelease = false) {
+  const currentTag = "1.0.3-beta.0";
 
-  console.log(transform);
-}
+  const customCommits = ["fix: bug fix for issue #123", "fix: new feature"];
 
-async function testBump() {
-  const customCommits = [{ header: "fix: bug fix for issue #123" }];
+  let { increment, patch, isBreaking } = recommendedBump(customCommits);
 
-  const bump = await conventionalRecommendedBump({
-    preset: "angular",
-    tagPrefix: "v",
-    commits: customCommits,
-  });
+  console.log("Orginal", increment, patch, isBreaking);
 
-  console.log(bump);
+  if (isPreRelease) {
+    const preinc = ("pre" + increment) as ReleaseType;
+    const preTag = inc(currentTag, preinc, "beta");
+
+    console.log("Preinc", preTag);
+    return;
+  }
+
+  const result = inc(currentTag, increment, "beta");
+
+  console.log("New tag", result);
 }
 
 testBump();

@@ -1,5 +1,9 @@
 lockfileVersion: '6.0'
 
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
 dependencies:
   '@actions/core':
     specifier: ^1.10.1
@@ -25,6 +29,9 @@ dependencies:
   conventional-recommended-bump:
     specifier: ^9.0.0
     version: 9.0.0
+  recommended-bump:
+    specifier: ^1.5.2
+    version: 1.5.2
   semver:
     specifier: ^7.5.4
     version: 7.5.4
@@ -407,6 +414,11 @@ packages:
       is-obj: 2.0.0
     dev: false
 
+  /esm@3.2.25:
+    resolution: {integrity: sha512-U1suiZ2oDVWv4zPO56S0NcR5QriEahGtdN2OR6FiOG4WJvcjBVFB0qI4+eKoWFH483PKGuLuu6V8Z4T5g63UVA==}
+    engines: {node: '>=6'}
+    dev: false
+
   /git-raw-commits@4.0.0:
     resolution: {integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==}
     engines: {node: '>=16'}
@@ -476,6 +488,19 @@ packages:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
     dependencies:
       wrappy: 1.0.2
+    dev: false
+
+  /parse-commit-message@4.0.0-canary.20:
+    resolution: {integrity: sha512-y34PoGKtFs8wlggvsJ2JOeX3BmFebmGl1yO2MY6QiKYV3l0bDlL27CzSsVFMnb1n8MjeaUW7kL71hX/G+NsKQA==}
+    engines: {node: ^8.10.0 || >=10.13.0}
+    dev: false
+
+  /recommended-bump@1.5.2:
+    resolution: {integrity: sha512-P7zb9BB4kd/sprfv5+VYBoA42vWcPccGNHaKuBFx5a/yd+c28sF9CRE6pP+rb086Uz1P1BVR5z7e0kRUEZacig==}
+    engines: {node: ^8.10.0 || >=10.13.0}
+    dependencies:
+      esm: 3.2.25
+      parse-commit-message: 4.0.0-canary.20
     dev: false
 
   /semver@7.5.4:
@@ -561,7 +586,3 @@ packages:
   /yallist@4.0.0:
     resolution: {integrity: sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==}
     dev: false
-
-settings:
-  autoInstallPeers: true
-  excludeLinksFromLockfile: false

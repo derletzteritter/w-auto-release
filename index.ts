@@ -28,9 +28,37 @@ function validateArgs(): ActionArgs {
     automaticReleaseTag: core.getInput("automatic_release_tag", {
       required: false,
     }),
+    environment: core.getInput("environment", { required: true }) as
+      | "dev"
+      | "test"
+      | "prod",
   };
 
   return args;
+}
+
+async function createNewTag(octokit: OctokitClient, refInfo: CreateRefParams) {
+  core.startGroup("Creating release tag");
+
+  const tagName = refInfo.ref.substring(5);
+
+  core.info(`Attempting to create or update tag ${tagName}`);
+
+  try {
+    await octokit.git.createRef(refInfo);
+  } catch (err) {
+    const existingTag = refInfo.ref.substring(5);
+    core.info(`Tag ${existingTag} already exists, attempting to update`);
+
+    await octokit.git.updateRef({
+      ...refInfo,
+      ref: existingTag,
+      force: true,
+    });
+  }
+
+  core.info(`Successfully created or updated tag ${tagName}`);
+  core.endGroup();
 }
 
 export async function main() {
@@ -54,6 +82,8 @@ export async function main() {
     core.endGroup();
 
     core.startGroup("Getting release tags");
+
+    // since this is being triggerd from a workflow dispatch event, we need to create a new tag based on the current version
 
     const releaseTag = args.automaticReleaseTag
       ? args.automaticReleaseTag
