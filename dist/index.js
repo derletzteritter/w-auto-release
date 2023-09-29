@@ -10614,8 +10614,9 @@ async function main() {
         const parsedCommits = await parseCommits(octokit, context.repo.owner, context.repo.repo, commitsSinceRelease);
         core.info(`Found ${commitsSinceRelease.length} commits since last release`);
         core.info(JSON.stringify(commits));
+        core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
-        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
+        core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     }
     catch (err) {
         if (err instanceof Error) {
@@ -10629,6 +10630,7 @@ async function main() {
 exports.main = main;
 const createNewReleaseTag = async (currentTag, commits, environment) => {
     let increment = (0, utils_1.getNextSemverBump)(commits);
+    core.info(`Next semver bump: ${increment}`);
     if (environment === 'test') {
         const preinc = "pre" + increment;
         const preTag = (0, inc_1.default)(currentTag, preinc, "beta");
@@ -10710,7 +10712,6 @@ async function parseCommits(octokit, owner, repo, commits) {
     const parsedCommits = [];
     for (const commit of commits) {
         core.info(`Processing commit ${commit.sha}`);
-        core.info(`Searching for pull requests associated with commit ${commit.sha}`);
         const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
             owner,
             repo,
@@ -10721,9 +10722,14 @@ async function parseCommits(octokit, owner, repo, commits) {
         }
         const changelogCommit = conventional_commits_parser_1.default.sync(commit.commit.message, {
             mergePattern: /^Merge pull request #(\d+) from (.*)$/,
+            revertPattern: /^Revert \"([\s\S]*)\"$/,
         });
         if (changelogCommit.merge) {
             core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
+            continue;
+        }
+        if (changelogCommit.revert) {
+            core.debug(`Ignoring revert commit: ${changelogCommit.revert}`);
             continue;
         }
         const parsedCommit = {

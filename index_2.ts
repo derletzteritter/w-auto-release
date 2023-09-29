@@ -88,9 +88,11 @@ export async function main() {
         core.info(`Found ${commitsSinceRelease.length} commits since last release`);
         core.info(JSON.stringify(commits));
 
+        core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
+
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
 
-        core.debug(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
+        core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     } catch (err) {
         if (err instanceof Error) {
             core.setFailed(err?.message);
@@ -104,6 +106,8 @@ export async function main() {
 
 const createNewReleaseTag = async (currentTag: string, commits: ParsedCommit[], environment: "dev" | "test" | "prod") => {
     let increment = getNextSemverBump(commits);
+
+    core.info(`Next semver bump: ${increment}`)
 
     if (environment === 'test') {
         const preinc = "pre" + increment as ReleaseType;
@@ -216,9 +220,6 @@ async function parseCommits(
 
     for (const commit of commits) {
         core.info(`Processing commit ${commit.sha}`);
-        core.info(
-            `Searching for pull requests associated with commit ${commit.sha}`,
-        );
 
         const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
             owner,
@@ -236,11 +237,17 @@ async function parseCommits(
             commit.commit.message,
             {
                 mergePattern: /^Merge pull request #(\d+) from (.*)$/,
+                revertPattern: /^Revert \"([\s\S]*)\"$/,
             },
         );
 
         if (changelogCommit.merge) {
             core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
+            continue;
+        }
+
+        if (changelogCommit.revert) {
+            core.debug(`Ignoring revert commit: ${changelogCommit.revert}`);
             continue;
         }
 
