@@ -78,6 +78,8 @@ export async function main() {
 
         core.endGroup();
 
+        core.debug(`Previous release tag: ${previousReleaseTag}`)
+
        /* // create new tag based on the current version
 
         const commitsSinceRelease = await getCommitsSinceRelease(

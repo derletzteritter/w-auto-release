@@ -10100,6 +10100,7 @@ async function main() {
                 repo: context.repo.repo,
             }, args.environment);
         core.endGroup();
+        core.debug(`Previous release tag: ${previousReleaseTag}`);
         /* // create new tag based on the current version
  
          const commitsSinceRelease = await getCommitsSinceRelease(
