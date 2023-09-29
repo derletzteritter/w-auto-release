@@ -31,10 +31,10 @@ function validateArgs(): ActionArgs {
         automaticReleaseTag: core.getInput("automatic_release_tag", {
             required: false,
         }),
-        environment: core.getInput("environment", { required: true }) as
+        environment: core.getInput("place", { required: false }) as
             | "dev"
             | "test"
-            | "prod",
+            | "prod" ?? "test",
     };
 
     return args;
