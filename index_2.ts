@@ -8,8 +8,6 @@ import semverInc from "semver/functions/inc";
 // @ts-ignore
 import recommendedBump from "recommended-bump";
 
-declare module "recommended-bump" {}
-
 import conventionalCommitsParser from "conventional-commits-parser";
 import { generateChangelogFromParsedCommits } from "./utils";
 import {
