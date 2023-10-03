@@ -8,6 +8,8 @@ import {
   ActionArgs,
   BaseheadCommits,
   CreateRefParams,
+  CreateReleaseParams,
+  GetReleaseByTagParams,
   GitGetRefParams,
   OctokitClient,
   ParsedCommit,
@@ -15,7 +17,7 @@ import {
 } from "./typings";
 import { prerelease, ReleaseType } from "semver";
 import conventionalCommitsParser, { Commit } from "conventional-commits-parser";
-import { getNextSemverBump } from "./utils";
+import { generateChangelogFromParsedCommits, getNextSemverBump } from "./utils";
 
 function validateArgs(): ActionArgs {
   const args = {
@@ -89,19 +91,59 @@ export async function main() {
 
     core.info(`Found ${commitsSinceRelease.length} commits since last release`);
 
-    const newReleaseTag = await createNewReleaseTag(
-      previousReleaseTag,
-      parsedCommits,
-      "test"
+    const changelog = await getChangelog(
+      octokit,
+      context.repo.owner,
+      context.repo.repo,
+      commitsSinceRelease
     );
-    core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
 
-    await createGithubTag(octokit, {
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      ref: `refs/tags/${newReleaseTag}`,
-      sha: context.sha,
-    });
+    if (args.automaticReleaseTag) {
+      await createGithubTag(octokit, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        ref: `refs/tags/${args.automaticReleaseTag}`,
+        sha: context.sha,
+      });
+
+      await deletePreviousGithubRelease(octokit, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        tag: args.automaticReleaseTag,
+      });
+
+      await createNewRelease(octokit, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        tag_name: args.automaticReleaseTag,
+        body: changelog,
+        prerelease: args.preRelease,
+        name: args.title ? args.title : args.automaticReleaseTag,
+      });
+    } else {
+      const newReleaseTag = await createNewReleaseTag(
+        previousReleaseTag,
+        parsedCommits,
+        "test"
+      );
+      core.info(`New release tag: ${newReleaseTag}`);
+
+      await createGithubTag(octokit, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        ref: `refs/tags/${newReleaseTag}`,
+        sha: context.sha,
+      });
+
+      await createNewRelease(octokit, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        tag_name: newReleaseTag,
+        body: changelog,
+        prerelease: args.preRelease,
+        name: args.title ? `${args.title} - ${newReleaseTag}` : newReleaseTag,
+      });
+    }
   } catch (err) {
     if (err instanceof Error) {
       core.setFailed(err?.message);
@@ -111,6 +153,20 @@ export async function main() {
     core.setFailed("An unexpected error occurred");
     throw err;
   }
+}
+
+async function createNewRelease(
+  octokit: OctokitClient,
+  params: CreateReleaseParams
+): Promise<string> {
+  core.startGroup(`Generating new release for the ${params.tag_name} tag`);
+
+  core.info("Creating new release");
+  const resp = await octokit.repos.createRelease(params);
+
+  core.endGroup();
+
+  return resp.data.upload_url;
 }
 
 const createNewReleaseTag = async (
@@ -330,4 +386,78 @@ async function createGithubTag(
   core.info(`Successfully created or updated tag ${tagName}`);
   core.endGroup();
 }
+
+async function getChangelog(
+  octokit: OctokitClient,
+  owner: string,
+  repo: string,
+  commits: BaseheadCommits["data"]["commits"]
+): Promise<string> {
+  const parsedCommits: ParsedCommit[] = [];
+
+  for (const commit of commits) {
+    core.info(`Processing commit ${commit.sha}`);
+    core.info(
+      `Searching for pull requests associated with commit ${commit.sha}`
+    );
+
+    const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
+      owner,
+      repo,
+      commit_sha: commit.sha,
+    });
+
+    if (pulls.data.length) {
+      core.info(
+        `Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`
+      );
+    }
+
+    const changelogCommit = conventionalCommitsParser.sync(
+      commit.commit.message,
+      {
+        mergePattern: /^Merge pull request #(\d+) from (.*)$/,
+      }
+    );
+
+    if (changelogCommit.merge) {
+      core.debug(`Ignoring merge commit: ${changelogCommit.merge}`);
+      continue;
+    }
+
+    const parsedCommit: ParsedCommit = {
+      commitMsg: changelogCommit,
+      commit,
+    };
+
+    parsedCommits.push(parsedCommit);
+  }
+
+  const changelog = generateChangelogFromParsedCommits(parsedCommits);
+
+  return changelog;
+}
+
+async function deletePreviousGithubRelease(
+  octokit: OctokitClient,
+  releaseInfo: GetReleaseByTagParams
+) {
+  core.startGroup(`Deleting previous release with tag ${releaseInfo.tag}`);
+
+  try {
+    const resp = await octokit.repos.getReleaseByTag(releaseInfo);
+
+    core.info(`Found release ${resp.data.id}, deleting`);
+    await octokit.repos.deleteRelease({
+      owner: releaseInfo.owner,
+      repo: releaseInfo.repo,
+      release_id: resp.data.id,
+    });
+  } catch (err) {
+    core.info(`Could not find release with tag ${releaseInfo.tag}`);
+  }
+
+  core.endGroup();
+}
+
 main();
