@@ -11251,7 +11251,7 @@ async function main() {
         core.startGroup("Getting release tags");
         const previousReleaseTag = args.automaticReleaseTag
             ? args.automaticReleaseTag
-            : await searchForPreviousReleaseTag(octokit, {
+            : await searchForPreviousEnvironmentReleaseTag(octokit, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
             }, args.environment);
@@ -11287,7 +11287,11 @@ async function main() {
             });
         }
         else {
-            const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
+            const latestReleaseTag = await searchForPreviousReleaseTag(octokit, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+            });
+            const newReleaseTag = await createNewReleaseTag(latestReleaseTag, parsedCommits, args.environment);
             core.info(`New release tag: ${newReleaseTag}`);
             await createGithubTag(octokit, {
                 owner: context.repo.owner,
@@ -11338,7 +11342,23 @@ const createNewReleaseTag = async (currentTag, commits, environment) => {
     // @ts-ignore
     return (0, inc_1.default)(currentTag, increment);
 };
-async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
+async function searchForPreviousReleaseTag(octokit, tagInfo) {
+    const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
+    const tl = await octokit.paginate(listTagsOptions);
+    const tagList = tl
+        .map((tag) => {
+        core.debug(`Found tag ${tag.name}`);
+        const t = (0, valid_1.default)(tag.name);
+        return {
+            ...tag,
+            semverTag: t,
+        };
+    })
+        .filter((tag) => tag.semverTag !== null)
+        .sort((a, b) => (0, rcompare_1.default)(a.semverTag, b.semverTag));
+    return tagList[0].name;
+}
+async function searchForPreviousEnvironmentReleaseTag(octokit, tagInfo, environment) {
     const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
     const tl = await octokit.paginate(listTagsOptions);
     core.info(`Found ${tl.length} tags`);

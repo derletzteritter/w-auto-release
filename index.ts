@@ -96,7 +96,7 @@ export async function main() {
 
     const previousReleaseTag = args.automaticReleaseTag
       ? args.automaticReleaseTag
-      : await searchForPreviousReleaseTag(octokit, releaseTag, {
+      : await searchForPreviousReleaseTag(octokit, {
           owner: context.repo.owner,
           repo: context.repo.repo,
         });
@@ -207,24 +207,15 @@ const parseGitTag = (inputRef: string): string => {
 
 async function searchForPreviousReleaseTag(
   octokit: OctokitClient,
-  currentReleaseTag: string,
   tagInfo: ReposListTagsParams
 ) {
-  const validSemver = semverValid(
-    semverInc(currentReleaseTag, "prerelease", "pre", false)
-  );
-  if (!validSemver) {
-    core.setFailed("No valid semver tag found");
-    return;
-  }
-
   const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
   const tl = await octokit.paginate(listTagsOptions);
 
   const tagList = tl
     .map((tag: any) => {
       core.debug(`Found tag ${tag.name}`);
-      const t = semverValid(semverInc(tag.name, "prerelease", "pre", false));
+      const t = semverValid(tag.name);
       return {
         ...tag,
         semverTag: t,
@@ -233,15 +224,7 @@ async function searchForPreviousReleaseTag(
     .filter((tag) => tag.semverTag !== null)
     .sort((a, b) => semverRcompare(a.semverTag, b.semverTag));
 
-  let previousReleaseTag = "";
-  for (const tag of tagList) {
-    if (semverLt(tag.semverTag, currentReleaseTag)) {
-      previousReleaseTag = tag.name;
-      break;
-    }
-  }
-
-  return previousReleaseTag;
+  return tagList[0].name;
 }
 
 async function getCommitsSinceRelease(

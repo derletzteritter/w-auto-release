@@ -4,6 +4,7 @@ import { Context } from "@actions/github/lib/context";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
 import semverInc from "semver/functions/inc";
+import semverLt from "semver/functions/lt";
 import {
   ActionArgs,
   BaseheadCommits,
@@ -60,7 +61,7 @@ export async function main() {
     core.startGroup("Getting release tags");
     const previousReleaseTag = args.automaticReleaseTag
       ? args.automaticReleaseTag
-      : await searchForPreviousReleaseTag(
+      : await searchForPreviousEnvironmentReleaseTag(
           octokit,
           {
             owner: context.repo.owner,
@@ -121,8 +122,13 @@ export async function main() {
         name: args.title ? args.title : args.automaticReleaseTag,
       });
     } else {
+      const latestReleaseTag = await searchForPreviousReleaseTag(octokit, {
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+      });
+
       const newReleaseTag = await createNewReleaseTag(
-        previousReleaseTag,
+        latestReleaseTag,
         parsedCommits,
         args.environment
       );
@@ -196,6 +202,28 @@ const createNewReleaseTag = async (
 };
 
 async function searchForPreviousReleaseTag(
+  octokit: OctokitClient,
+  tagInfo: ReposListTagsParams
+) {
+  const listTagsOptions = octokit.repos.listTags.endpoint.merge(tagInfo);
+  const tl = await octokit.paginate(listTagsOptions);
+
+  const tagList = tl
+    .map((tag: any) => {
+      core.debug(`Found tag ${tag.name}`);
+      const t = semverValid(tag.name);
+      return {
+        ...tag,
+        semverTag: t,
+      };
+    })
+    .filter((tag) => tag.semverTag !== null)
+    .sort((a, b) => semverRcompare(a.semverTag, b.semverTag));
+
+  return tagList[0].name;
+}
+
+async function searchForPreviousEnvironmentReleaseTag(
   octokit: OctokitClient,
   tagInfo: ReposListTagsParams,
   environment: "dev" | "test" | "prod"
