@@ -152,20 +152,32 @@ async function searchForPreviousReleaseTag(
                     core.info(`Prerelease tag: ${t}`)
                     return {
                         ...tag,
-                        semverTag: t,
+                        semverTag: t ?? null
                     }
+                }
+
+                return {
+                    ...tag,
+                    semverTag: null
                 }
             } else {
                 core.info(`Environment is not test, checking for semver tag`)
                 const t = semverValid(tag.name);
                 core.info(`Semver tag: ${t}`)
+                const preArr = prerelease(tag.name);
+                if (preArr?.length > 0 && preArr?.includes("pre")) {
+                    return {
+                        ...tag,
+                        semverTag: null
+                    }
+                }
                 return {
                     ...tag,
                     semverTag: t,
                 };
             }
         })
-        .filter((tag) => tag.semverTag !== null)
+        .filter((tag) => tag?.semverTag !== null)
         .sort((a, b) => semverRcompare(a.semverTag, b.semverTag));
 
     core.info(`Found ${tagList.length} semver tags`);

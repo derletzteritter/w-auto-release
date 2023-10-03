@@ -10664,21 +10664,32 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
                 core.info(`Prerelease tag: ${t}`);
                 return {
                     ...tag,
-                    semverTag: t,
+                    semverTag: t !== null && t !== void 0 ? t : null
                 };
             }
+            return {
+                ...tag,
+                semverTag: null
+            };
         }
         else {
             core.info(`Environment is not test, checking for semver tag`);
             const t = (0, valid_1.default)(tag.name);
             core.info(`Semver tag: ${t}`);
+            const preArr = (0, semver_1.prerelease)(tag.name);
+            if ((preArr === null || preArr === void 0 ? void 0 : preArr.length) > 0 && (preArr === null || preArr === void 0 ? void 0 : preArr.includes("pre"))) {
+                return {
+                    ...tag,
+                    semverTag: null
+                };
+            }
             return {
                 ...tag,
                 semverTag: t,
             };
         }
     })
-        .filter((tag) => tag.semverTag !== null)
+        .filter((tag) => (tag === null || tag === void 0 ? void 0 : tag.semverTag) !== null)
         .sort((a, b) => (0, rcompare_1.default)(a.semverTag, b.semverTag));
     core.info(`Found ${tagList.length} semver tags`);
     core.info(JSON.stringify(tagList));
