@@ -10680,6 +10680,7 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
         .filter((tag) => tag.semverTag !== null)
         .sort((a, b) => (0, rcompare_1.default)(a.semverTag, b.semverTag));
     core.info(`Found ${tagList.length} semver tags`);
+    core.info(JSON.stringify(tagList));
     // return the latest tag
     return tagList[0] ? tagList[0].name : "";
 }

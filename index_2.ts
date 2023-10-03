@@ -169,6 +169,8 @@ async function searchForPreviousReleaseTag(
 
     core.info(`Found ${tagList.length} semver tags`);
 
+    core.info(JSON.stringify(tagList));
+
     // return the latest tag
     return tagList[0] ? tagList[0].name : "";
 }
