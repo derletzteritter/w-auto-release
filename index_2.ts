@@ -147,7 +147,7 @@ async function searchForPreviousReleaseTag(
             if (environment === 'test') {
                 core.info(`Environment is test, checking for prerelease tag`)
                 const preArr = prerelease(tag.name);
-                if (preArr.includes("pre")) {
+                if (preArr?.length > 0 && preArr?.includes("pre")) {
                     const t = semverValid(tag.name);
                     core.info(`Prerelease tag: ${t}`)
                     return {

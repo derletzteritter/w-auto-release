@@ -10659,7 +10659,7 @@ async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
         if (environment === 'test') {
             core.info(`Environment is test, checking for prerelease tag`);
             const preArr = (0, semver_1.prerelease)(tag.name);
-            if (preArr.includes("pre")) {
+            if ((preArr === null || preArr === void 0 ? void 0 : preArr.length) > 0 && (preArr === null || preArr === void 0 ? void 0 : preArr.includes("pre"))) {
                 const t = (0, valid_1.default)(tag.name);
                 core.info(`Prerelease tag: ${t}`);
                 return {
