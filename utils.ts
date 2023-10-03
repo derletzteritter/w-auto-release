@@ -39,7 +39,7 @@ const getFormattedChangelogEntry = (parsedCommit: ParsedCommit): string => {
 };
 
 export const generateChangelogFromParsedCommits = (
-  parsedCommits: ParsedCommit[],
+  parsedCommits: ParsedCommit[]
 ): string => {
   let changelog = "";
 
@@ -66,7 +66,6 @@ export const generateChangelogFromParsedCommits = (
 
   return changelog;
 };
-
 
 export function getNextSemverBump(commits: ParsedCommit[]): string {
   let hasBreakingChange = false;
@@ -99,6 +98,6 @@ export function getNextSemverBump(commits: ParsedCommit[]): string {
   } else if (hasNewFix) {
     return "patch";
   } else {
-    return ""
+    return "";
   }
 }
