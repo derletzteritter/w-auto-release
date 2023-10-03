@@ -68,7 +68,7 @@ export async function main() {
 
     if (!args.repoToken) {
       core.setFailed(
-        "No repo token specified. Please set the GITHUB_TOKEN environment variable.",
+        "No repo token specified. Please set the GITHUB_TOKEN environment variable."
       );
       return;
     }
@@ -110,14 +110,14 @@ export async function main() {
         repo: context.repo.repo,
         ref: `tags/${previousReleaseTag}`,
       },
-      context.sha,
+      context.sha
     );
 
     const changelog = await getChangelog(
       octokit,
       context.repo.owner,
       context.repo.repo,
-      commitsSinceRelease,
+      commitsSinceRelease
     );
 
     if (args.automaticReleaseTag) {
@@ -156,7 +156,7 @@ export async function main() {
 
 async function createReleaseTag(
   octokit: OctokitClient,
-  refInfo: CreateRefParams,
+  refInfo: CreateRefParams
 ) {
   core.startGroup("Creating release tag");
 
@@ -183,7 +183,7 @@ async function createReleaseTag(
 
 async function createNewRelease(
   octokit: OctokitClient,
-  params: CreateReleaseParams,
+  params: CreateReleaseParams
 ): Promise<string> {
   core.startGroup(`Generating new release for the ${params.tag_name} tag`);
 
@@ -208,10 +208,10 @@ const parseGitTag = (inputRef: string): string => {
 async function searchForPreviousReleaseTag(
   octokit: OctokitClient,
   currentReleaseTag: string,
-  tagInfo: ReposListTagsParams,
+  tagInfo: ReposListTagsParams
 ) {
   const validSemver = semverValid(
-    semverInc(currentReleaseTag, "prerelease", "pre", false),
+    semverInc(currentReleaseTag, "prerelease", "pre", false)
   );
   if (!validSemver) {
     core.setFailed("No valid semver tag found");
@@ -247,7 +247,7 @@ async function searchForPreviousReleaseTag(
 async function getCommitsSinceRelease(
   octokit: OctokitClient,
   tagInfo: GitGetRefParams,
-  currentSha: string,
+  currentSha: string
 ) {
   core.startGroup("Fetching commit history");
   let resp;
@@ -260,7 +260,7 @@ async function getCommitsSinceRelease(
     previousReleaseRef = parseGitTag(tagInfo.ref);
   } catch (err) {
     core.info(
-      `Could not find SHA for release tag ${tagInfo.ref}. Assuming this is the first release.`,
+      `Could not find SHA for release tag ${tagInfo.ref}. Assuming this is the first release.`
     );
     previousReleaseRef = "HEAD";
   }
@@ -277,7 +277,7 @@ async function getCommitsSinceRelease(
     core.info(`Found ${resp.data.commits.length} commits since last release`);
   } catch (err) {
     core.warning(
-      `Could not fetch commits between ${previousReleaseRef} and ${currentSha}`,
+      `Could not fetch commits between ${previousReleaseRef} and ${currentSha}`
     );
   }
 
@@ -296,14 +296,14 @@ async function getChangelog(
   octokit: OctokitClient,
   owner: string,
   repo: string,
-  commits: BaseheadCommits["data"]["commits"],
+  commits: BaseheadCommits["data"]["commits"]
 ): Promise<string> {
   const parsedCommits: ParsedCommit[] = [];
 
   for (const commit of commits) {
     core.info(`Processing commit ${commit.sha}`);
     core.info(
-      `Searching for pull requests associated with commit ${commit.sha}`,
+      `Searching for pull requests associated with commit ${commit.sha}`
     );
 
     const pulls = await octokit.repos.listPullRequestsAssociatedWithCommit({
@@ -314,7 +314,7 @@ async function getChangelog(
 
     if (pulls.data.length) {
       core.info(
-        `Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`,
+        `Found ${pulls.data.length} pull request(s) associated with commit ${commit.sha}`
       );
     }
 
@@ -322,7 +322,7 @@ async function getChangelog(
       commit.commit.message,
       {
         mergePattern: /^Merge pull request #(\d+) from (.*)$/,
-      },
+      }
     );
 
     if (changelogCommit.merge) {
@@ -345,7 +345,7 @@ async function getChangelog(
 
 async function deletePreviousGithubRelease(
   octokit: OctokitClient,
-  releaseInfo: GetReleaseByTagParams,
+  releaseInfo: GetReleaseByTagParams
 ) {
   core.startGroup(`Deleting previous release with tag ${releaseInfo.tag}`);
 

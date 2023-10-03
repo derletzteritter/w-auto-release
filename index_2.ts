@@ -7,6 +7,7 @@ import semverInc from "semver/functions/inc";
 import {
   ActionArgs,
   BaseheadCommits,
+  CreateRefParams,
   GitGetRefParams,
   OctokitClient,
   ParsedCommit,
@@ -69,8 +70,6 @@ export async function main() {
     core.info(`Previous release tag: ${previousReleaseTag}`);
     core.endGroup();
 
-    // create new tag based on the current version
-
     const commitsSinceRelease = await getCommitsSinceRelease(
       octokit,
       {
@@ -81,10 +80,6 @@ export async function main() {
       context.sha
     );
 
-    const commits = commitsSinceRelease.map((commit) => {
-      return commit.commit.message;
-    });
-
     const parsedCommits = await parseCommits(
       octokit,
       context.repo.owner,
@@ -93,11 +88,7 @@ export async function main() {
     );
 
     core.info(`Found ${commitsSinceRelease.length} commits since last release`);
-    core.info(JSON.stringify(commits));
 
-    core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
-
-    core.info("ENVIRONMENT: " + args.environment);
     const newReleaseTag = await createNewReleaseTag(
       previousReleaseTag,
       parsedCommits,
@@ -105,10 +96,12 @@ export async function main() {
     );
     core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
 
-    if (newReleaseTag === previousReleaseTag) {
-      core.info("No bump needed, skipping release");
-      return;
-    }
+    await createGithubTag(octokit, {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      ref: `refs/tags/${newReleaseTag}`,
+      sha: context.sha,
+    });
   } catch (err) {
     if (err instanceof Error) {
       core.setFailed(err?.message);
@@ -126,11 +119,6 @@ const createNewReleaseTag = async (
   environment: "dev" | "test" | "prod"
 ) => {
   let increment = getNextSemverBump(commits);
-
-  if (!increment) {
-    core.info("No bump needed, skipping release");
-    return currentTag;
-  }
 
   core.info(`Next semver bump: ${increment}`);
 
@@ -160,7 +148,6 @@ async function searchForPreviousReleaseTag(
   const tl = await octokit.paginate(listTagsOptions);
 
   core.info(`Found ${tl.length} tags`);
-  core.info(JSON.stringify(tl));
 
   const tagList = tl
     .map((tag: any) => {
@@ -202,8 +189,6 @@ async function searchForPreviousReleaseTag(
     .sort((a, b) => semverRcompare(a.semverTag, b.semverTag));
 
   core.info(`Found ${tagList.length} semver tags`);
-
-  core.info(JSON.stringify(tagList));
 
   // return the latest tag
   return tagList[0] ? tagList[0].name : "";
@@ -319,4 +304,30 @@ async function parseCommits(
   return parsedCommits;
 }
 
+async function createGithubTag(
+  octokit: OctokitClient,
+  refInfo: CreateRefParams
+) {
+  core.startGroup("Creating release tag");
+
+  const tagName = refInfo.ref.substring(5);
+
+  core.info(`Attempting to create or update tag ${tagName}`);
+
+  try {
+    await octokit.git.createRef(refInfo);
+  } catch (err) {
+    const existingTag = refInfo.ref.substring(5);
+    core.info(`Tag ${existingTag} already exists, attempting to update`);
+
+    await octokit.git.updateRef({
+      ...refInfo,
+      ref: existingTag,
+      force: true,
+    });
+  }
+
+  core.info(`Successfully created or updated tag ${tagName}`);
+  core.endGroup();
+}
 main();
