@@ -66,7 +66,7 @@ export async function main() {
             owner: context.repo.owner,
             repo: context.repo.repo,
           },
-          "test"
+          args.environment
         );
 
     core.info(`Previous release tag: ${previousReleaseTag}`);
@@ -124,7 +124,7 @@ export async function main() {
       const newReleaseTag = await createNewReleaseTag(
         previousReleaseTag,
         parsedCommits,
-        "test"
+        args.environment
       );
       core.info(`New release tag: ${newReleaseTag}`);
 

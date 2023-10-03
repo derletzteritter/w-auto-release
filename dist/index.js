@@ -11254,7 +11254,7 @@ async function main() {
             : await searchForPreviousReleaseTag(octokit, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-            }, "test");
+            }, args.environment);
         core.info(`Previous release tag: ${previousReleaseTag}`);
         core.endGroup();
         const commitsSinceRelease = await getCommitsSinceRelease(octokit, {
@@ -11287,7 +11287,7 @@ async function main() {
             });
         }
         else {
-            const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, "test");
+            const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, args.environment);
             core.info(`New release tag: ${newReleaseTag}`);
             await createGithubTag(octokit, {
                 owner: context.repo.owner,
