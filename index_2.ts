@@ -65,9 +65,6 @@ export async function main() {
         core.info(`Previous release tag: ${previousReleaseTag}`)
         core.endGroup();
 
-
-
-
         // create new tag based on the current version
 
         const commitsSinceRelease = await getCommitsSinceRelease(
@@ -94,6 +91,11 @@ export async function main() {
         core.info("ENVIRONMENT: " + args.environment)
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, "test");
 
+        if (newReleaseTag === previousReleaseTag) {
+            core.info("No bump needed, skipping release");
+            return;
+        }
+
         core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     } catch (err) {
         if (err instanceof Error) {
@@ -109,6 +111,11 @@ export async function main() {
 const createNewReleaseTag = async (currentTag: string, commits: ParsedCommit[], environment: "dev" | "test" | "prod") => {
     let increment = getNextSemverBump(commits);
 
+    if (!increment) {
+        core.info("No bump needed, skipping release");
+        return currentTag;
+    }
+
     core.info(`Next semver bump: ${increment}`)
 
     if (environment === 'test') {
@@ -119,6 +126,7 @@ const createNewReleaseTag = async (currentTag: string, commits: ParsedCommit[], 
         return preTag;
     }
 
+    // @ts-ignore
     return semverInc(currentTag, increment);
 }
 

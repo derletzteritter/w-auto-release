@@ -6,17 +6,13 @@ import {warning} from "@actions/core";
 import conventionalRecommendedBump from "conventional-recommended-bump";
 
 async function testRecommendedBump() {
-    const customCommits = ["fix: bug fix for issue #123", "feat: new feature"]
+    const currentTag = "1.0.2-pre"
 
+    const newStableVersion = inc(currentTag, "minor", {
+        loose: false
+    })
 
-    // @ts-ignore
-    const result = await conventionalRecommendedBump({
-        preset: "angular",
-        commits: customCommits,
-        tagPrefix: "v",
-    });
-
-    console.log(result);
+    console.log(newStableVersion)
 }
 
 testRecommendedBump();

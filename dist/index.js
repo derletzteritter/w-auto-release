@@ -10616,6 +10616,10 @@ async function main() {
         core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
         core.info("ENVIRONMENT: " + args.environment);
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, "test");
+        if (newReleaseTag === previousReleaseTag) {
+            core.info("No bump needed, skipping release");
+            return;
+        }
         core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     }
     catch (err) {
@@ -10630,6 +10634,10 @@ async function main() {
 exports.main = main;
 const createNewReleaseTag = async (currentTag, commits, environment) => {
     let increment = (0, utils_1.getNextSemverBump)(commits);
+    if (!increment) {
+        core.info("No bump needed, skipping release");
+        return currentTag;
+    }
     core.info(`Next semver bump: ${increment}`);
     if (environment === 'test') {
         const preinc = "pre" + increment;
@@ -10637,6 +10645,7 @@ const createNewReleaseTag = async (currentTag, commits, environment) => {
         core.info(`New pre-release tag: ${preTag}`);
         return preTag;
     }
+    // @ts-ignore
     return (0, inc_1.default)(currentTag, increment);
 };
 async function searchForPreviousReleaseTag(octokit, tagInfo, environment) {
@@ -10823,8 +10832,12 @@ exports.generateChangelogFromParsedCommits = generateChangelogFromParsedCommits;
 function getNextSemverBump(commits) {
     let hasBreakingChange = false;
     let hasNewFeature = false;
+    let hasNewFix = false;
     for (const commit of commits) {
         const commitType = commit.commitMsg.type;
+        if (commitType === "fix") {
+            hasNewFix = true;
+        }
         // Check for breaking changes
         if (commitType === "breaking") {
             hasBreakingChange = true;
@@ -10841,8 +10854,11 @@ function getNextSemverBump(commits) {
     else if (hasNewFeature) {
         return "minor";
     }
-    else {
+    else if (hasNewFix) {
         return "patch";
+    }
+    else {
+        return "";
     }
 }
 exports.getNextSemverBump = getNextSemverBump;

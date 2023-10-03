@@ -68,12 +68,17 @@ export const generateChangelogFromParsedCommits = (
 };
 
 
-export function getNextSemverBump(commits: ParsedCommit[]): "major" | "minor" | "patch" {
+export function getNextSemverBump(commits: ParsedCommit[]): string {
   let hasBreakingChange = false;
   let hasNewFeature = false;
+  let hasNewFix = false;
 
   for (const commit of commits) {
     const commitType = commit.commitMsg.type;
+
+    if (commitType === "fix") {
+      hasNewFix = true;
+    }
 
     // Check for breaking changes
     if (commitType === "breaking") {
@@ -91,7 +96,9 @@ export function getNextSemverBump(commits: ParsedCommit[]): "major" | "minor" | 
     return "major";
   } else if (hasNewFeature) {
     return "minor";
-  } else {
+  } else if (hasNewFix) {
     return "patch";
+  } else {
+    return ""
   }
 }
