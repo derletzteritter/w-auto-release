@@ -7,6 +7,7 @@ import conventionalRecommendedBump from "conventional-recommended-bump";
 import * as core from "@actions/core";
 import semverValid from "semver/functions/valid";
 import semverRcompare from "semver/functions/rcompare";
+import semverInc from "semver/functions/inc";
 
 const tl = [{
     "name": "v1.3",
@@ -118,13 +119,31 @@ function createNewReleaseTag(environment) {
 }
 
 async function testRecommendedBump() {
-    const currentTag = "1.0.2-pre"
+    const currentTag = "0.1.0"
 
-    const newStableVersion = inc(currentTag, "minor", {
-        loose: false
-    })
 
-    console.log(newStableVersion)
+
+    console.log(prerelease(currentTag));
+
+    const preTag = semverInc(currentTag, "prepatch", "pre");
+
+    console.log(preTag);
+
+    const newPreTag = semverInc(preTag, "preminor", "pre");
+
+    console.log(newPreTag);
+
+    const newPrerelaseTag = semverInc(newPreTag, "prerelease", "pre");
+
+    console.log(newPrerelaseTag);
+
+    const newPrerelaseTag2 = semverInc(newPrerelaseTag, "prerelease", "pre");
+
+    console.log(newPrerelaseTag2);
+
+    const newReleaseTag = semverInc(newPrerelaseTag2, "minor");
+
+    console.log(newReleaseTag);
 }
 
-createNewReleaseTag("prod");
+testRecommendedBump()

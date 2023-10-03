@@ -10616,11 +10616,11 @@ async function main() {
         core.info("PARSED COMMITS: " + JSON.stringify(parsedCommits));
         core.info("ENVIRONMENT: " + args.environment);
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, "test");
+        core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
         if (newReleaseTag === previousReleaseTag) {
             core.info("No bump needed, skipping release");
             return;
         }
-        core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     }
     catch (err) {
         if (err instanceof Error) {
@@ -10641,7 +10641,7 @@ const createNewReleaseTag = async (currentTag, commits, environment) => {
     core.info(`Next semver bump: ${increment}`);
     if (environment === 'test') {
         const preinc = "pre" + increment;
-        const preTag = (0, inc_1.default)(currentTag, preinc, "beta");
+        const preTag = (0, inc_1.default)(currentTag, preinc, "pre");
         core.info(`New pre-release tag: ${preTag}`);
         return preTag;
     }

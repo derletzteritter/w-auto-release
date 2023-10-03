@@ -90,13 +90,13 @@ export async function main() {
 
         core.info("ENVIRONMENT: " + args.environment)
         const newReleaseTag = await createNewReleaseTag(previousReleaseTag, parsedCommits, "test");
+        core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
 
         if (newReleaseTag === previousReleaseTag) {
             core.info("No bump needed, skipping release");
             return;
         }
 
-        core.info(`New release tag DEBUGDEBUG: ${newReleaseTag}`);
     } catch (err) {
         if (err instanceof Error) {
             core.setFailed(err?.message);
@@ -120,7 +120,7 @@ const createNewReleaseTag = async (currentTag: string, commits: ParsedCommit[], 
 
     if (environment === 'test') {
         const preinc = "pre" + increment as ReleaseType;
-        const preTag = semverInc(currentTag, preinc, "beta");
+        const preTag = semverInc(currentTag, preinc, "pre");
 
         core.info(`New pre-release tag: ${preTag}`);
         return preTag;
