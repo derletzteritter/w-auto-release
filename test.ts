@@ -122,9 +122,6 @@ async function testRecommendedBump() {
     const currentTag = "0.1.0"
 
 
-
-    console.log(prerelease(currentTag));
-
     const preTag = semverInc(currentTag, "prepatch", "pre");
 
     console.log(preTag);
