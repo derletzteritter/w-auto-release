@@ -17,7 +17,7 @@ import {
   ReposListTagsParams,
 } from "./typings";
 import { prerelease, ReleaseType } from "semver";
-import conventionalCommitsParser, { Commit } from "conventional-commits-parser";
+import conventionalCommitsParser from "conventional-commits-parser";
 import { generateChangelogFromParsedCommits, getNextSemverBump } from "./utils";
 
 function validateArgs(): ActionArgs {
